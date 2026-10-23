@@ -1,0 +1,8 @@
+fastapi>=0.141
+uvicorn[standard]>=0.54
+python-dotenv>=1.2
+
+# Microsoft Agent Framework (Foundry models + multi-agent orchestration)
+agent-framework-core>=1.23
+agent-framework-foundry>=1.15
+agent-framework-orchestrations>=1.4

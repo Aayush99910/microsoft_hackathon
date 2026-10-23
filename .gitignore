@@ -20,4 +20,4 @@ build/
 .idea/
 
 # Local Claude settings
-.claude/settings.local.json
+.claude/
