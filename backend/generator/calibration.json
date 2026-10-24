@@ -1,0 +1,185 @@
+{
+  "source": "StatsBomb Open Data, 21 matches (aggregate statistics only)",
+  "pitch": {
+    "length": 105.0,
+    "width": 68.0
+  },
+  "per_match": {
+    "open_play_passes": 900.4,
+    "carries": 784.6,
+    "open_play_shots": 25.0,
+    "goals": 1.95,
+    "tackles": 26.6,
+    "fouls": 29.6,
+    "yellow_cards": 2.67
+  },
+  "pass": {
+    "length_buckets": [
+      {
+        "min": 0,
+        "max": 10,
+        "share": 0.2798,
+        "fail_rate": 0.2066,
+        "high_share": 0.097
+      },
+      {
+        "min": 10,
+        "max": 20,
+        "share": 0.4093,
+        "fail_rate": 0.1091,
+        "high_share": 0.0886
+      },
+      {
+        "min": 20,
+        "max": 30,
+        "share": 0.1855,
+        "fail_rate": 0.1784,
+        "high_share": 0.1879
+      },
+      {
+        "min": 30,
+        "max": 45,
+        "share": 0.0859,
+        "fail_rate": 0.3317,
+        "high_share": 0.4935
+      },
+      {
+        "min": 45,
+        "max": 200,
+        "share": 0.0394,
+        "fail_rate": 0.6376,
+        "high_share": 0.9477
+      }
+    ],
+    "direction_by_third": {
+      "defensive": {
+        "forward": 0.44,
+        "sideways": 0.474,
+        "backward": 0.0859
+      },
+      "middle": {
+        "forward": 0.3096,
+        "sideways": 0.5312,
+        "backward": 0.1593
+      },
+      "attacking": {
+        "forward": 0.2267,
+        "sideways": 0.5736,
+        "backward": 0.1997
+      }
+    },
+    "fail_multiplier_by_target_distance": [
+      {
+        "min": 0,
+        "max": 8,
+        "multiplier": 4.336
+      },
+      {
+        "min": 8,
+        "max": 12,
+        "multiplier": 3.689
+      },
+      {
+        "min": 12,
+        "max": 18,
+        "multiplier": 3.415
+      },
+      {
+        "min": 18,
+        "max": 25,
+        "multiplier": 2.004
+      },
+      {
+        "min": 25,
+        "max": 35,
+        "multiplier": 1.368
+      },
+      {
+        "min": 35,
+        "max": 200,
+        "multiplier": 0.706
+      }
+    ],
+    "pressure_fail_multiplier": 1.315,
+    "out_of_play_share_of_fails": 0.1227,
+    "ball_speed_ms": {
+      "ground": 11.7,
+      "high": 13.5
+    }
+  },
+  "carry": {
+    "prob_before_action": 0.8478,
+    "length_deciles_m": [
+      0.8,
+      1.2,
+      1.9,
+      2.6,
+      3.5,
+      4.6,
+      6.2,
+      8.1,
+      12.2
+    ],
+    "speed_ms_median": 2.9,
+    "tackle_prob": 0.0339,
+    "tackle_success": 0.6208
+  },
+  "pressure": {
+    "prob_by_third": {
+      "defensive": 0.209,
+      "middle": 0.2214,
+      "attacking": 0.2879
+    }
+  },
+  "shot": {
+    "distance_buckets": [
+      {
+        "min": 0,
+        "max": 8,
+        "shoot_prob": 0.8667,
+        "goal_rate": 0.1795
+      },
+      {
+        "min": 8,
+        "max": 12,
+        "shoot_prob": 0.7405,
+        "goal_rate": 0.0928
+      },
+      {
+        "min": 12,
+        "max": 18,
+        "shoot_prob": 0.4667,
+        "goal_rate": 0.0786
+      },
+      {
+        "min": 18,
+        "max": 25,
+        "shoot_prob": 0.1773,
+        "goal_rate": 0.0458
+      },
+      {
+        "min": 25,
+        "max": 35,
+        "shoot_prob": 0.0343,
+        "goal_rate": 0.0137
+      },
+      {
+        "min": 35,
+        "max": 200,
+        "shoot_prob": 0.0004,
+        "goal_rate": 0.0
+      }
+    ],
+    "miss_outcomes": {
+      "off_target": 0.4793,
+      "blocked": 0.3223,
+      "saved": 0.186,
+      "post": 0.0124
+    }
+  },
+  "discipline": {
+    "foul_prob_per_action": 0.0173,
+    "yellow_per_foul": 0.0902,
+    "red_per_foul": 0.0016
+  }
+}
