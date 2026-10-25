@@ -24,16 +24,16 @@ frontend/    React + TypeScript (Vite)
 
 `backend/generator/` simulates full 90-minute matches between fictional clubs as a stream of events (pass, carry, pressure, tackle, shot, goal, possession change, foul, card, period start/end). The schema and pitch coordinates are documented in [`events.py`](backend/generator/events.py).
 
-The simulator is **calibrated, not copied**: [`tools/calibrate.py`](backend/tools/calibrate.py) measures aggregate patterns (pass length mix, failure rates under pressure and near goal, shot conversion by distance, foul and card rates) from open event data and saves them to [`calibration.json`](backend/generator/calibration.json). Every generated match is new, but averages line up with real football:
+The simulator is **calibrated, not copied**: [`tools/calibrate.py`](backend/tools/calibrate.py) measures aggregate patterns (pass length mix, failure rates near goal and when challenged, shot conversion by distance, header rates, duel, foul and card rates) from open event data and saves them to [`calibration.json`](backend/generator/calibration.json). A few things the data does not record (carries, how often players are pressed, shot technique, deflections, ball speed) are set by hand and listed under `assumptions` in that file. Every generated match is new, but averages line up with real football:
 
-| Per match | Real (open data) | Simulated (20 matches) |
+| Per match | Real (World Cup 2018 + Euro 2016) | Simulated (20 matches) |
 |---|---|---|
-| Open-play passes | 900 | 988 |
-| Pass accuracy | 82% | 82% |
-| Shots | 25–27 | 28 |
-| Goals | 2.7 | 3.0 |
-| Tackles | 27 | 27 |
-| Fouls | 30 | 32 |
+| Passes | 863 | 977 |
+| Pass accuracy | 85% | 85% |
+| Shots | 22.8 | 22.5 |
+| Goals | 1.9 | 2.1 |
+| Ground duels (tackle attempts) | 126 | 137 |
+| Fouls | 27 | 29 |
 
 Scripted goals let a demo put key moments where they are wanted:
 
@@ -42,7 +42,11 @@ cd backend
 python -m generator.match_sim --seed 7 --goal 23:home --goal 78:away:30 --out match.json
 ```
 
-Calibration source: [StatsBomb Open Data](https://github.com/statsbomb/open-data), used only to compute averages; no real match events are included in this repository.
+**Calibration data.** Aggregate statistics are computed from the public Wyscout soccer-logs dataset, World Cup 2018 and Euro 2016 only (no Premier League data), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):
+
+> Pappalardo, L., Cintia, P., Rossi, A. et al. A public data set of spatio-temporal match events in soccer competitions. *Scientific Data* 6, 236 (2019). https://doi.org/10.1038/s41597-019-0247-7 — data: https://figshare.com/collections/Soccer_match_event_dataset/4415000
+
+No real match events are included in this repository; only derived averages are.
 
 ## Run locally
 

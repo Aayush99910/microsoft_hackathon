@@ -109,9 +109,11 @@ class MatchSimulator:
 
         # Ball state, in the attacking frame of the team in possession
         self.side = "home"
-        self.carrier = 0
+        self.carrier = 0  # 0 = nobody (before kickoff)
         self.bx, self.by = CENTER
-        self.last_pass: tuple[int, int] | None = None  # (passer, recipient), for assists
+        self.last_pass: tuple[int, int, bool] | None = None  # (passer, recipient, high), for assists and headers
+        # Where and how the current possession started, to spot counter-attacks
+        self.possession_start = (0.0, CENTER[0], "kickoff")  # (t, x, reason)
 
     @property
     def info(self) -> MatchInfo:
@@ -156,6 +158,7 @@ class MatchSimulator:
 
     def start_period(self, period: int, kickoff_side: str) -> None:
         self.period = period
+        self.carrier = 0  # nobody "lost" the ball at the start of a half
         self.emit(PeriodStartEvent, None, None, *CENTER)
         self.kickoff(kickoff_side)
 
@@ -180,9 +183,11 @@ class MatchSimulator:
         self.t += duration
         self.bx, self.by = ex, ey
 
-        if self.rng.random() < cal["tackle_prob"]:
+        # Tackles and fouls are measured per pass/shot; they happen around carries, so scale to a per-carry rate
+        tackle = self.cal["tackle"]["by_third"][self.third()]  # defenders challenge more near their own box
+        if self.rng.random() < tackle["prob_per_action"] / cal["prob_before_action"]:
             defender = self.nearest_defender()
-            won = self.rng.random() < cal["tackle_success"]
+            won = self.rng.random() < tackle["success"]
             self.emit(
                 TackleEvent, other(self.side), defender, self.bx, self.by, frame=self.side,
                 tackle=TackleDetails(opponent_id=self.carrier, won=won),
@@ -192,9 +197,7 @@ class MatchSimulator:
                 self.new_possession(other(self.side), defender, *flip(self.bx, self.by), reason="tackle")
                 return False
 
-        # Fouls happen around carries; scale the per-action rate to a per-carry rate
-        foul_per_carry = self.cal["discipline"]["foul_prob_per_action"] * (1 + 1 / cal["prob_before_action"])
-        if self.rng.random() < foul_per_carry:
+        if self.rng.random() < self.cal["discipline"]["foul_prob_per_action"] / cal["prob_before_action"]:
             self.foul()
         return True
 
@@ -210,7 +213,8 @@ class MatchSimulator:
         bucket = buckets[self.pick([b["share"] for b in buckets])]
         length = self.rng.uniform(bucket["min"], min(bucket["max"], MAX_PASS_LENGTH))
         ex, ey = self.pass_target(length)
-        high = self.rng.random() < bucket["high_share"]
+        into_box = ex >= LENGTH - 16.5 and abs(ey - WIDTH / 2) <= 20.16  # crosses get lifted
+        high = self.rng.random() < (cal["high_share_into_box"] if into_box else bucket["high_share"])
 
         # Bucket fail rates mix calm and pressed passes; split them using the pressure multiplier
         multiplier = cal["pressure_fail_multiplier"]
@@ -235,8 +239,8 @@ class MatchSimulator:
     def complete_pass(self, recipient: int, ex: float, ey: float, high: bool, pressed: bool) -> None:
         duration = self.flight_time(ex, ey, high)
         self.emit_pass(ex, ey, recipient, "complete", high, duration, pressed)
-        self.t += duration + self.rng.uniform(0.6, 1.8)  # flight + controlling the ball
-        self.last_pass = (self.carrier, recipient)
+        self.t += duration + self.rng.uniform(1.2, 3.0)  # flight + controlling the ball and looking up
+        self.last_pass = (self.carrier, recipient, high)
         self.carrier = recipient
         self.bx, self.by = ex, ey
 
@@ -261,8 +265,12 @@ class MatchSimulator:
         distance = math.dist((self.bx, self.by), GOAL)
         bucket = self.shot_bucket(distance)
         centrality = 1 - min(abs(self.by - WIDTH / 2) / (WIDTH / 2), 1)
+        body_part, technique = self.shot_style()
         # Bucket goal rate is an average over all angles; central shots score more, wide ones less
-        xg = clamp(bucket["goal_rate"] * (0.4 + 0.8 * centrality), 0.01, 0.9)
+        xg = bucket["goal_rate"] * (0.4 + 0.8 * centrality)
+        if body_part == "head":
+            xg *= self.cal["shot"]["header_xg_multiplier"]  # headers are harder to score
+        xg = clamp(xg, 0.01, 0.9)
 
         if force_goal or self.rng.random() < xg:
             outcome = "goal"
@@ -273,15 +281,27 @@ class MatchSimulator:
         ex, ey, ez = self.shot_end(outcome)
         speed = self.rng.uniform(16, 32)  # m/s; open data has no shot speed, so this is an assumption
         duration = math.dist((self.bx, self.by), (ex, ey)) / speed
+
+        defending = other(self.side)
+        blocker = None
+        if outcome == "blocked":
+            blocker = self.nearest_player(defending, *flip(ex, ey), exclude=(self.player_at(defending, "GK"),))
+        elif outcome == "saved":
+            blocker = self.player_at(defending, "GK")
+        deflected = outcome != "blocked" and self.rng.random() < self.cal["shot"]["deflected_share"]
+
+        shot_id = self.next_id
         self.emit(
             ShotEvent, self.side, self.carrier, self.bx, self.by, under_pressure=pressed,
             shot=ShotDetails(**self.end_point(ex, ey), end_z=round(ez, 2), duration=round(duration, 2),
-                             xg=round(xg, 3), outcome=outcome),
+                             xg=round(xg, 3), outcome=outcome, blocker_id=blocker, deflected=deflected,
+                             body_part=body_part, technique=technique, situation=self.situation()),
         )
         self.t += duration
-        self.after_shot(outcome)
+        self.after_shot(outcome, blocker, ex, ey, shot_id, deflected)
 
-    def after_shot(self, outcome: str) -> None:
+    def after_shot(self, outcome: str, blocker: int | None, ex: float, ey: float, shot_id: int,
+                   deflected: bool) -> None:
         defending = other(self.side)
         keeper = self.player_at(defending, "GK")
         if outcome == "goal":
@@ -289,7 +309,8 @@ class MatchSimulator:
             assist = self.last_pass[0] if self.last_pass and self.last_pass[1] == self.carrier else None
             self.emit(
                 GoalEvent, self.side, self.carrier, self.bx, self.by,
-                goal=GoalDetails(assist_id=assist, home_score=self.score["home"], away_score=self.score["away"]),
+                goal=GoalDetails(shot_id=shot_id, assist_id=assist, deflected=deflected,
+                                 home_score=self.score["home"], away_score=self.score["away"]),
             )
             self.t += self.rng.uniform(45, 75)  # celebration
             self.kickoff(defending)
@@ -300,9 +321,8 @@ class MatchSimulator:
             self.carrier = self.nearest_teammate(self.bx - 4, self.by)  # rebound stays with attackers
             self.t += 1.0
         elif outcome == "blocked":
-            blocker = self.nearest_player(defending, *flip(self.bx + 2, self.by))
-            self.new_possession(defending, blocker, *flip(self.bx + 2, self.by), reason="loose_ball")
-        else:  # off target or post -> goal kick
+            self.new_possession(defending, blocker, *flip(ex, ey), reason="loose_ball")
+        else:  # off target or woodwork -> goal kick
             self.t += self.rng.uniform(15, 30)
             self.new_possession(defending, keeper, 5.5, WIDTH / 2 + self.rng.uniform(-9, 9), reason="goal_kick")
 
@@ -366,12 +386,14 @@ class MatchSimulator:
 
     def new_possession(self, side: str, player_id: int, x: float, y: float, reason: str) -> None:
         """Give the ball to `side`; x, y are in that side's attacking frame."""
+        lost_by = self.carrier or None  # whoever had it until now (0 = nobody)
         self.side, self.carrier = side, player_id
         self.bx, self.by = clamp(x, 0, LENGTH), clamp(y, 0, WIDTH)
         self.possession += 1
+        self.possession_start = (self.t, self.bx, reason)
         self.last_pass = None
         self.emit(PossessionChangeEvent, side, player_id, self.bx, self.by,
-                  possession_change=PossessionChangeDetails(reason=reason))
+                  possession_change=PossessionChangeDetails(reason=reason, lost_by_id=lost_by))
 
     def emit(self, cls, side, player_id, x, y, frame=None, **fields) -> None:
         """Queue an event. x, y are in `frame`'s attacking frame (default: the acting side's)."""
@@ -453,6 +475,27 @@ class MatchSimulator:
     def shoot_prob(self) -> float:
         return self.shot_bucket(math.dist((self.bx, self.by), GOAL))["shoot_prob"]
 
+    def shot_style(self) -> tuple[str, str]:
+        """Body part and technique. A ball that arrives in the air gets headed or volleyed far more often."""
+        cal = self.cal["shot"]
+        in_the_air = bool(self.last_pass and self.last_pass[1] == self.carrier and self.last_pass[2])
+        header_share = cal["header_share"]["after_high_pass" if in_the_air else "otherwise"]
+        close_enough = math.dist((self.bx, self.by), GOAL) < 18  # nobody heads it from 25 m
+        if close_enough and self.rng.random() < header_share:
+            body_part, techniques = "head", cal["technique"]["head"]
+        else:
+            body_part = "left_foot" if self.rng.random() < cal["left_foot_share"] else "right_foot"
+            techniques = cal["technique"]["foot_after_high_pass" if in_the_air else "foot_otherwise"]
+        return body_part, list(techniques)[self.pick(list(techniques.values()))]
+
+    def situation(self) -> str:
+        """Counter-attack = ball won in our own half, then a shot within 15 seconds."""
+        start_t, start_x, reason = self.possession_start
+        won_back = reason in ("interception", "tackle", "loose_ball")
+        if won_back and start_x < LENGTH / 2 and self.t - start_t <= 15:
+            return "counter_attack"
+        return "open_play"
+
     def pass_target(self, length: float) -> tuple[float, float]:
         """Pick an end point `length` metres away, in a direction typical for this third."""
         shares = self.cal["pass"]["direction_by_third"][self.third()]
@@ -477,8 +520,10 @@ class MatchSimulator:
     def shot_end(self, outcome: str) -> tuple[float, float, float]:
         if outcome in ("goal", "saved"):
             return LENGTH, self.rng.uniform(GOAL_Y_MIN + 0.3, GOAL_Y_MAX - 0.3), self.rng.uniform(0.1, CROSSBAR - 0.1)
-        if outcome == "post":
-            return LENGTH, self.rng.choice([GOAL_Y_MIN, GOAL_Y_MAX]), self.rng.uniform(0, CROSSBAR)
+        if outcome == "woodwork":
+            if self.rng.random() < 0.3:  # crossbar
+                return LENGTH, self.rng.uniform(GOAL_Y_MIN, GOAL_Y_MAX), CROSSBAR
+            return LENGTH, self.rng.choice([GOAL_Y_MIN, GOAL_Y_MAX]), self.rng.uniform(0, CROSSBAR)  # a post
         if outcome == "blocked":
             step = self.rng.uniform(1, 4)
             dx, dy = GOAL[0] - self.bx, GOAL[1] - self.by

@@ -1,134 +1,148 @@
 {
-  "source": "StatsBomb Open Data, 21 matches (aggregate statistics only)",
+  "source": "Wyscout public soccer-logs (Pappalardo et al. 2019, CC BY 4.0), 115 World Cup 2018 and Euro 2016 matches; aggregate statistics only",
   "pitch": {
     "length": 105.0,
     "width": 68.0
   },
   "per_match": {
-    "open_play_passes": 900.4,
-    "carries": 784.6,
-    "open_play_shots": 25.0,
-    "goals": 1.95,
-    "tackles": 26.6,
-    "fouls": 29.6,
-    "yellow_cards": 2.67
+    "passes": 863.3,
+    "pass_accuracy": 0.848,
+    "shots": 22.8,
+    "goals": 1.92,
+    "fouls": 26.9,
+    "yellow_cards": 3.68
   },
   "pass": {
     "length_buckets": [
       {
         "min": 0,
         "max": 10,
-        "share": 0.2798,
-        "fail_rate": 0.2066,
-        "high_share": 0.097
+        "share": 0.2101,
+        "fail_rate": 0.1511,
+        "high_share": 0.0935
       },
       {
         "min": 10,
         "max": 20,
-        "share": 0.4093,
-        "fail_rate": 0.1091,
-        "high_share": 0.0886
+        "share": 0.3934,
+        "fail_rate": 0.0988,
+        "high_share": 0.0968
       },
       {
         "min": 20,
         "max": 30,
-        "share": 0.1855,
-        "fail_rate": 0.1784,
-        "high_share": 0.1879
+        "share": 0.2251,
+        "fail_rate": 0.1288,
+        "high_share": 0.1642
       },
       {
         "min": 30,
         "max": 45,
-        "share": 0.0859,
-        "fail_rate": 0.3317,
-        "high_share": 0.4935
+        "share": 0.1161,
+        "fail_rate": 0.2213,
+        "high_share": 0.4002
       },
       {
         "min": 45,
         "max": 200,
-        "share": 0.0394,
-        "fail_rate": 0.6376,
-        "high_share": 0.9477
+        "share": 0.0553,
+        "fail_rate": 0.487,
+        "high_share": 0.8813
       }
     ],
     "direction_by_third": {
       "defensive": {
-        "forward": 0.44,
-        "sideways": 0.474,
-        "backward": 0.0859
+        "forward": 0.4564,
+        "sideways": 0.468,
+        "backward": 0.0756
       },
       "middle": {
-        "forward": 0.3096,
-        "sideways": 0.5312,
-        "backward": 0.1593
+        "forward": 0.3365,
+        "sideways": 0.5065,
+        "backward": 0.157
       },
       "attacking": {
-        "forward": 0.2267,
-        "sideways": 0.5736,
-        "backward": 0.1997
+        "forward": 0.2167,
+        "sideways": 0.5689,
+        "backward": 0.2145
       }
     },
     "fail_multiplier_by_target_distance": [
       {
         "min": 0,
         "max": 8,
-        "multiplier": 4.336
+        "multiplier": 4.186
       },
       {
         "min": 8,
         "max": 12,
-        "multiplier": 3.689
+        "multiplier": 3.562
       },
       {
         "min": 12,
         "max": 18,
-        "multiplier": 3.415
+        "multiplier": 3.315
       },
       {
         "min": 18,
         "max": 25,
-        "multiplier": 2.004
+        "multiplier": 2.251
       },
       {
         "min": 25,
         "max": 35,
-        "multiplier": 1.368
+        "multiplier": 1.494
       },
       {
         "min": 35,
         "max": 200,
-        "multiplier": 0.706
+        "multiplier": 0.707
       }
     ],
-    "pressure_fail_multiplier": 1.315,
-    "out_of_play_share_of_fails": 0.1227,
+    "pressure_fail_multiplier": 2.102,
+    "out_of_play_share_of_fails": 0.1564,
     "ball_speed_ms": {
-      "ground": 11.7,
-      "high": 13.5
-    }
+      "ground": 12.0,
+      "high": 14.0
+    },
+    "high_share_into_box": 0.6284
   },
   "carry": {
-    "prob_before_action": 0.8478,
+    "prob_before_action": 0.8,
     "length_deciles_m": [
-      0.8,
-      1.2,
-      1.9,
-      2.6,
-      3.5,
-      4.6,
-      6.2,
-      8.1,
-      12.2
+      0.3,
+      0.6,
+      0.9,
+      1.3,
+      1.7,
+      2.3,
+      3.0,
+      4.0,
+      5.8
     ],
-    "speed_ms_median": 2.9,
-    "tackle_prob": 0.0339,
-    "tackle_success": 0.6208
+    "speed_ms_median": 3.0
+  },
+  "tackle": {
+    "by_third": {
+      "defensive": {
+        "prob_per_action": 0.075,
+        "success": 0.1622
+      },
+      "middle": {
+        "prob_per_action": 0.1064,
+        "success": 0.2168
+      },
+      "attacking": {
+        "prob_per_action": 0.2745,
+        "success": 0.2307
+      }
+    }
   },
   "pressure": {
     "prob_by_third": {
-      "defensive": 0.209,
-      "middle": 0.2214,
-      "attacking": 0.2879
+      "defensive": 0.2,
+      "middle": 0.2,
+      "attacking": 0.25
     }
   },
   "shot": {
@@ -136,50 +150,82 @@
       {
         "min": 0,
         "max": 8,
-        "shoot_prob": 0.8667,
-        "goal_rate": 0.1795
+        "shoot_prob": 0.7104,
+        "goal_rate": 0.3248
       },
       {
         "min": 8,
         "max": 12,
-        "shoot_prob": 0.7405,
-        "goal_rate": 0.0928
+        "shoot_prob": 0.5974,
+        "goal_rate": 0.1912
       },
       {
         "min": 12,
         "max": 18,
-        "shoot_prob": 0.4667,
-        "goal_rate": 0.0786
+        "shoot_prob": 0.3369,
+        "goal_rate": 0.0775
       },
       {
         "min": 18,
         "max": 25,
-        "shoot_prob": 0.1773,
-        "goal_rate": 0.0458
+        "shoot_prob": 0.1462,
+        "goal_rate": 0.0369
       },
       {
         "min": 25,
         "max": 35,
-        "shoot_prob": 0.0343,
-        "goal_rate": 0.0137
+        "shoot_prob": 0.0436,
+        "goal_rate": 0.0197
       },
       {
         "min": 35,
         "max": 200,
-        "shoot_prob": 0.0004,
+        "shoot_prob": 0.0006,
         "goal_rate": 0.0
       }
     ],
     "miss_outcomes": {
-      "off_target": 0.4793,
-      "blocked": 0.3223,
-      "saved": 0.186,
-      "post": 0.0124
-    }
+      "off_target": 0.4441,
+      "blocked": 0.2813,
+      "saved": 0.2542,
+      "woodwork": 0.0205
+    },
+    "deflected_share": 0.02,
+    "header_share": {
+      "after_high_pass": 0.3886,
+      "otherwise": 0.1168
+    },
+    "left_foot_share": 0.3755,
+    "technique": {
+      "foot_after_high_pass": {
+        "normal": 0.55,
+        "volley": 0.25,
+        "half_volley": 0.17,
+        "overhead": 0.03
+      },
+      "foot_otherwise": {
+        "normal": 0.85,
+        "half_volley": 0.09,
+        "volley": 0.05,
+        "overhead": 0.01
+      },
+      "head": {
+        "normal": 0.93,
+        "diving_header": 0.07
+      }
+    },
+    "header_xg_multiplier": 0.663
   },
   "discipline": {
-    "foul_prob_per_action": 0.0173,
-    "yellow_per_foul": 0.0902,
-    "red_per_foul": 0.0016
-  }
+    "foul_prob_per_action": 0.0304,
+    "yellow_per_foul": 0.1367,
+    "red_per_foul": 0.0023
+  },
+  "assumptions": [
+    "carry",
+    "pass.ball_speed_ms",
+    "pressure.prob_by_third",
+    "shot.deflected_share",
+    "shot.technique"
+  ]
 }
