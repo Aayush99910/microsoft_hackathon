@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { MomentFeed } from './components/MomentFeed'
 import { Pitch } from './components/Pitch'
-import { ProfilePicker } from './components/ProfilePicker'
+import { LanguagePicker, ModePicker } from './components/ProfilePicker'
 import { Scoreboard } from './components/Scoreboard'
 import { Setup } from './components/Setup'
 import { StatsPanel } from './components/StatsPanel'
 import type { Moment, Profile } from './types'
 import { useMatchStream } from './useMatchStream'
 
-const OVERLAY_SECONDS = 6 // how long a big-moment overlay stays on the pitch
+const OVERLAY_SECONDS = 6 // how long a big-moment graphic stays on the pitch
 
 function App() {
   const [seed, setSeed] = useState(7)
@@ -25,7 +25,7 @@ function App() {
   if (match.status === 'idle' || !match.info) {
     return (
       <main className="page">
-        <h1 className="brand">⚽ Match Brain</h1>
+        <Masthead />
         <Setup
           seed={seed}
           speed={speed}
@@ -41,10 +41,10 @@ function App() {
 
   const { info } = match
   return (
-    <main className="page live">
+    <main className="page">
       <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} />
       <div className="layout">
-        <div className="main-col">
+        <div className="col">
           <Pitch
             info={info}
             events={match.events}
@@ -52,22 +52,42 @@ function App() {
           />
           <StatsPanel info={info} stats={match.stats} />
         </div>
-        <div className="side-col">
-          <section className="card">
-            <h2>Tell it my way</h2>
-            <ProfilePicker profile={profile} onChange={changeProfile} compact />
-            <p className="muted small">Changes apply from the next key moment.</p>
+        <div className="col">
+          <section className="panel">
+            <div className="panel-head">
+              <span className="label">Your commentary</span>
+            </div>
+            <div className="profile-body">
+              <ModePicker profile={profile} onChange={changeProfile} />
+              <LanguagePicker profile={profile} onChange={changeProfile} />
+            </div>
+            <p className="profile-note">Applies from the next key moment.</p>
           </section>
           <MomentFeed info={info} moments={match.moments} lines={match.lines} />
         </div>
       </div>
       {match.status === 'ended' && (
         <div className="end-actions">
-          <button className="primary" onClick={() => match.start(seed, speed, profile)}>↻ Watch again</button>
-          <button className="ghost" onClick={match.stop}>New match</button>
+          <button className="btn btn-primary" onClick={() => match.start(seed, speed, profile)}>
+            Watch again
+          </button>
+          <button className="btn btn-line" onClick={match.stop}>
+            New fixture
+          </button>
         </div>
       )}
     </main>
+  )
+}
+
+function Masthead() {
+  return (
+    <header className="masthead">
+      <h1 className="wordmark">
+        Match<span>/</span>Brain
+      </h1>
+      <span className="label">Live match intelligence</span>
+    </header>
   )
 }
 

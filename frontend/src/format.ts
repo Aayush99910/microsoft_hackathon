@@ -5,37 +5,24 @@ export function clock(t: number, period: number): string {
   const minute = Math.floor(t / 60)
   const limit = 45 * period
   const second = String(Math.floor(t % 60)).padStart(2, '0')
-  return minute >= limit ? `${limit}+${minute - limit + 1}'` : `${String(minute).padStart(2, '0')}:${second}`
+  return minute >= limit ? `${limit}+${minute - limit + 1}` : `${String(minute).padStart(2, '0')}:${second}`
 }
 
 export function minuteLabel(t: number): string {
   return `${Math.floor(t / 60) + 1}'`
 }
 
-export const MOMENT_ICON: Record<string, string> = {
-  goal: '⚽',
-  milestone: '🏆',
-  big_chance: '🎯',
-  rocket: '⚡',
-  card: '🟨',
-  long_spell: '🔁',
-  momentum_shift: '📈',
-  pressing: '🔥',
-  chaos: '🌀',
-  half_time: '⏸️',
-  full_time: '🏁',
-}
-
+/** Short broadcast label for each kind of key moment. */
 export const MOMENT_LABEL: Record<string, string> = {
   goal: 'Goal',
   milestone: 'Milestone',
-  big_chance: 'Big chance',
+  big_chance: 'Chance',
   rocket: 'Speed',
-  card: 'Card',
+  card: 'Booking',
   long_spell: 'Possession',
   momentum_shift: 'Momentum',
-  pressing: 'Pressing',
-  chaos: 'Chaos',
+  pressing: 'Press',
+  chaos: 'Open game',
   half_time: 'Half-time',
   full_time: 'Full-time',
 }
@@ -45,7 +32,7 @@ const ACTION: Record<string, string> = {
   carry: 'carries',
   dribble: 'dribbles',
   shot: 'shoots',
-  goal: 'scores!',
+  goal: 'scores',
   pressure: 'presses',
   tackle: 'tackles',
   possession_change: 'wins the ball',
