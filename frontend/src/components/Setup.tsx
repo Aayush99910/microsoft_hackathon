@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { MatchInfo, Team } from '../types'
+import type { MatchInfo, Profile, Team } from '../types'
+import { ProfilePicker } from './ProfilePicker'
 
 const SPEEDS = [
   { value: 10, label: 'Relaxed', hint: '≈ 9 min' },
@@ -10,13 +11,15 @@ const SPEEDS = [
 type Props = {
   seed: number
   speed: number
+  profile: Profile
   onSeed: (seed: number) => void
   onSpeed: (speed: number) => void
+  onProfile: (profile: Profile) => void
   onKickOff: () => void
 }
 
-/** Pre-match card: the two teams, how fast to play, and the kick-off button. */
-export function Setup({ seed, speed, onSeed, onSpeed, onKickOff }: Props) {
+/** Pre-match card: the two teams, how to tell the story, how fast to play, and kick-off. */
+export function Setup({ seed, speed, profile, onSeed, onSpeed, onProfile, onKickOff }: Props) {
   const [info, setInfo] = useState<MatchInfo | null>(null)
 
   useEffect(() => {
@@ -43,6 +46,11 @@ export function Setup({ seed, speed, onSeed, onSpeed, onKickOff }: Props) {
             🎲 Another match
           </button>
         </div>
+      </div>
+
+      <div className="setup-row stacked">
+        <span className="setup-label">Tell it my way</span>
+        <ProfilePicker profile={profile} onChange={onProfile} />
       </div>
 
       <div className="setup-row">

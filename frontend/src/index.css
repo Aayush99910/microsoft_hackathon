@@ -618,3 +618,117 @@ h2 {
   gap: 12px;
   margin-top: 24px;
 }
+
+/* --- personalization ------------------------------------------------------------ */
+
+.setup-row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.profile-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-picker .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.chip-button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #04120a;
+  font-weight: 700;
+}
+
+.profile-picker.compact .chip-button {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.language {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: inherit;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.side-col .card p.small {
+  margin: 8px 0 0;
+}
+
+.side-col .feed {
+  max-height: calc(100vh - 330px);
+  position: static;
+}
+
+.profile-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-transform: capitalize;
+}
+
+.moment p.why {
+  margin: 4px 0 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(54, 194, 122, 0.08);
+  font-size: 13px;
+  color: #cfe3d7;
+}
+
+.moment p.why strong {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.trace {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.step {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.step.fallback {
+  color: var(--gold);
+}
+
+.moment-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}

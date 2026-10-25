@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Commentary, MatchEvent, MatchInfo, Moment, Stats } from './types'
+import type { Commentary, MatchEvent, MatchInfo, Moment, Profile, Stats } from './types'
 
 export type Status = 'idle' | 'live' | 'half_time' | 'ended' | 'error'
 
@@ -14,10 +14,11 @@ export function useMatchStream() {
   const [lines, setLines] = useState<Record<number, Commentary>>({})
   const [status, setStatus] = useState<Status>('idle')
   const source = useRef<EventSource | null>(null)
+  const session = useRef('')
 
   useEffect(() => () => source.current?.close(), [])
 
-  function start(seed: number, speed: number) {
+  function start(seed: number, speed: number, profile: Profile) {
     source.current?.close()
     setInfo(null)
     setStats(null)
@@ -26,7 +27,15 @@ export function useMatchStream() {
     setLines({})
     setStatus('live')
 
-    const es = new EventSource(`/api/match/stream?seed=${seed}&speed=${speed}`)
+    session.current = crypto.randomUUID().replaceAll('-', '')
+    const query = new URLSearchParams({
+      seed: String(seed),
+      speed: String(speed),
+      session: session.current,
+      mode: profile.mode,
+      language: profile.language,
+    })
+    const es = new EventSource(`/api/match/stream?${query}`)
     source.current = es
     const on = <T,>(kind: string, handle: (data: T) => void) =>
       es.addEventListener(kind, (msg) => handle(JSON.parse((msg as MessageEvent).data)))
@@ -50,10 +59,20 @@ export function useMatchStream() {
     }
   }
 
+  /** Change mode or language mid-match; the agents use it from the next key moment. */
+  function changeProfile(profile: Profile) {
+    if (!session.current || status === 'ended' || status === 'idle') return
+    fetch(`/api/session/${session.current}/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile),
+    }).catch(() => undefined)
+  }
+
   function stop() {
     source.current?.close()
     setStatus('idle')
   }
 
-  return { info, stats, events, moments, lines, status, start, stop }
+  return { info, stats, events, moments, lines, status, start, stop, changeProfile }
 }

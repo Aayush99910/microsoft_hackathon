@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { MomentFeed } from './components/MomentFeed'
 import { Pitch } from './components/Pitch'
+import { ProfilePicker } from './components/ProfilePicker'
 import { Scoreboard } from './components/Scoreboard'
 import { Setup } from './components/Setup'
 import { StatsPanel } from './components/StatsPanel'
-import type { Moment } from './types'
+import type { Moment, Profile } from './types'
 import { useMatchStream } from './useMatchStream'
 
 const OVERLAY_SECONDS = 6 // how long a big-moment overlay stays on the pitch
@@ -12,14 +13,28 @@ const OVERLAY_SECONDS = 6 // how long a big-moment overlay stays on the pitch
 function App() {
   const [seed, setSeed] = useState(7)
   const [speed, setSpeed] = useState(30)
+  const [profile, setProfile] = useState<Profile>({ mode: 'casual', language: 'en' })
   const match = useMatchStream()
   const overlayMoment = useOverlay(match.moments)
+
+  function changeProfile(next: Profile) {
+    setProfile(next)
+    match.changeProfile(next)
+  }
 
   if (match.status === 'idle' || !match.info) {
     return (
       <main className="page">
         <h1 className="brand">⚽ Match Brain</h1>
-        <Setup seed={seed} speed={speed} onSeed={setSeed} onSpeed={setSpeed} onKickOff={() => match.start(seed, speed)} />
+        <Setup
+          seed={seed}
+          speed={speed}
+          profile={profile}
+          onSeed={setSeed}
+          onSpeed={setSpeed}
+          onProfile={setProfile}
+          onKickOff={() => match.start(seed, speed, profile)}
+        />
       </main>
     )
   }
@@ -37,11 +52,18 @@ function App() {
           />
           <StatsPanel info={info} stats={match.stats} />
         </div>
-        <MomentFeed info={info} moments={match.moments} lines={match.lines} />
+        <div className="side-col">
+          <section className="card">
+            <h2>Tell it my way</h2>
+            <ProfilePicker profile={profile} onChange={changeProfile} compact />
+            <p className="muted small">Changes apply from the next key moment.</p>
+          </section>
+          <MomentFeed info={info} moments={match.moments} lines={match.lines} />
+        </div>
       </div>
       {match.status === 'ended' && (
         <div className="end-actions">
-          <button className="primary" onClick={() => match.start(seed, speed)}>↻ Watch again</button>
+          <button className="primary" onClick={() => match.start(seed, speed, profile)}>↻ Watch again</button>
           <button className="ghost" onClick={match.stop}>New match</button>
         </div>
       )}

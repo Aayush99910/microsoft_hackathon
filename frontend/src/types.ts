@@ -58,4 +58,16 @@ export type Moment = {
   evidence: number[]
 }
 
-export type Commentary = { moment_id: number; text: string; source: 'agent' | 'fallback'; ms: number }
+export type AgentStep = { agent: string; ms: number; source: 'agent' | 'fallback' | 'skipped'; error?: string }
+
+export type Commentary = {
+  moment_id: number
+  text: string
+  why: string | null
+  profile: string
+  source: 'agent' | 'fallback'
+  ms: number
+  steps: AgentStep[]
+}
+
+export type Profile = { mode: string; language: string }
