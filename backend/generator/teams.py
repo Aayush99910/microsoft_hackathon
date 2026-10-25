@@ -34,7 +34,7 @@ _SQUADS = {
             (4, "Mateo Kristensen", "CM"),
             (10, "Nils Okonjo", "LCM"),
             (7, "Dario Vance", "RW"),
-            (9, "Kai Thornton", "ST"),
+            (9, "Aayush Maharjan", "ST"),
             (11, "Leo Marchetti", "LW"),
         ],
     },
