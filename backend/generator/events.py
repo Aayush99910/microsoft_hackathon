@@ -62,13 +62,24 @@ class CarryDetails(BaseModel):
     duration: float
 
 
+class DribbleDetails(BaseModel):
+    opponent_id: int  # defender being taken on (the dribbler is the event's player_id)
+    success: bool  # True = beat them, False = lost the ball
+
+
 class ShotDetails(BaseModel):
     end_x: float  # where the ball ended up (goal line for on-target shots)
     end_y: float
     end_z: float  # height in metres (crossbar is at 2.44)
     duration: float  # seconds from strike to end point -> shot speed
     xg: float  # expected goals: chance this shot scores, 0..1
-    outcome: Literal["goal", "saved", "off_target", "blocked", "post"]
+    outcome: Literal["goal", "saved", "off_target", "blocked", "woodwork"]  # woodwork = post or crossbar
+    blocker_id: int | None = None  # defender who blocked it ("blocked") or keeper who stopped it ("saved")
+    deflected: bool = False  # touched a player on the way (can still end in a goal)
+    body_part: Literal["right_foot", "left_foot", "head"]
+    technique: Literal["normal", "volley", "half_volley", "overhead", "diving_header"]
+    # How the attack started. Set pieces (corner, free kick, penalty) are not simulated yet.
+    situation: Literal["open_play", "counter_attack"]
 
 
 class PressureDetails(BaseModel):
@@ -82,6 +93,7 @@ class TackleDetails(BaseModel):
 
 class PossessionChangeDetails(BaseModel):
     reason: Literal["kickoff", "interception", "tackle", "out_of_play", "save", "goal_kick", "loose_ball"]
+    lost_by_id: int | None  # player who last had the ball (None at the start of a half)
 
 
 class FoulDetails(BaseModel):
@@ -94,7 +106,9 @@ class CardDetails(BaseModel):
 
 
 class GoalDetails(BaseModel):
-    assist_id: int | None
+    shot_id: int  # the shot event this goal came from (body part, technique, xG, ...)
+    assist_id: int | None  # None = solo goal
+    deflected: bool  # copied from the shot, for overlays
     home_score: int  # score after this goal
     away_score: int
 
@@ -107,9 +121,15 @@ class PassEvent(Event):
     pass_: PassDetails = Field(alias="pass")  # `pass` is a Python keyword
 
 
+
 class CarryEvent(Event):
     type: Literal["carry"] = "carry"
     carry: CarryDetails
+
+
+class DribbleEvent(Event):
+    type: Literal["dribble"] = "dribble"
+    dribble: DribbleDetails
 
 
 class ShotEvent(Event):
@@ -162,6 +182,7 @@ class PeriodEndEvent(Event):
 MatchEvent = Annotated[
     PassEvent
     | CarryEvent
+    | DribbleEvent
     | ShotEvent
     | GoalEvent
     | PressureEvent
