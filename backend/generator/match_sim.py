@@ -333,10 +333,13 @@ class MatchSimulator:
         self.emit(FoulEvent, defending, fouler, self.bx, self.by, frame=self.side,
                   foul=FoulDetails(victim_id=self.carrier))
         discipline = self.cal["discipline"]
+        yellow_rate = discipline["yellow_per_foul"]
+        if self.yellows[fouler]:
+            yellow_rate *= 0.25  # assumption: booked players are careful, and referees slower to show a second card
         roll = self.rng.random()
         if roll < discipline["red_per_foul"] and self.players[fouler].position != "GK":
             self.send_off(defending, fouler, "foul")
-        elif roll < discipline["red_per_foul"] + discipline["yellow_per_foul"]:
+        elif roll < discipline["red_per_foul"] + yellow_rate:
             self.yellows[fouler] += 1
             self.emit(CardEvent, defending, fouler, self.bx, self.by, frame=self.side,
                       card=CardDetails(color="yellow", reason="foul"))
