@@ -211,7 +211,7 @@ class MatchSimulator:
         cal = self.cal["pass"]
         buckets = cal["length_buckets"]
         bucket = buckets[self.pick([b["share"] for b in buckets])]
-        length = self.rng.uniform(bucket["min"], min(bucket["max"], MAX_PASS_LENGTH))
+        length = self.rng.uniform(max(bucket["min"], 3), min(bucket["max"], MAX_PASS_LENGTH))  # 3 m+ to count as a pass
         ex, ey = self.pass_target(length)
         into_box = ex >= LENGTH - 16.5 and abs(ey - WIDTH / 2) <= 20.16  # crosses get lifted
         high = self.rng.random() < (cal["high_share_into_box"] if into_box else bucket["high_share"])
@@ -279,7 +279,8 @@ class MatchSimulator:
             outcome = list(misses)[self.pick(list(misses.values()))]
 
         ex, ey, ez = self.shot_end(outcome)
-        speed = self.rng.uniform(16, 32)  # m/s; open data has no shot speed, so this is an assumption
+        # m/s; open data has no shot speed, so this is an assumption (headers are much slower)
+        speed = self.rng.uniform(8, 18) if body_part == "head" else self.rng.uniform(16, 32)
         duration = math.dist((self.bx, self.by), (ex, ey)) / speed
 
         defending = other(self.side)
