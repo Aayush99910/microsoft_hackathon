@@ -5,7 +5,7 @@ export const MODES = [
   { id: 'analyst', label: 'Analyst', hint: 'Numbers first' },
   { id: 'tactics', label: 'Tactics', hint: 'Shape, space, pressing' },
   { id: 'kids', label: 'Kids', hint: 'Simple and fun' },
-  { id: 'accessible', label: 'Audio', hint: 'Described for screen readers' },
+  { id: 'accessible', label: 'Described', hint: 'For blind and low-vision fans: who, where, what' },
 ]
 
 export const LANGUAGES = [

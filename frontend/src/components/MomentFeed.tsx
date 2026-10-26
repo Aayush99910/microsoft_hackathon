@@ -1,7 +1,16 @@
 import { MOMENT_LABEL, minuteLabel } from '../format'
 import type { AgentStep, Commentary, MatchInfo, Moment } from '../types'
 
-type Props = { info: MatchInfo; moments: Moment[]; lines: Record<number, Commentary> }
+type Props = {
+  info: MatchInfo
+  moments: Moment[]
+  lines: Record<number, Commentary>
+  onReplay: (moment: Moment) => void
+  onCompare: (moment: Moment) => void
+}
+
+// Moments built from a passage of play that is worth watching again
+const REPLAYABLE = new Set(['goal', 'big_chance', 'rocket', 'card', 'long_spell'])
 
 const AGENT_NAME: Record<string, string> = {
   narrator: 'Narrator',
@@ -11,7 +20,7 @@ const AGENT_NAME: Record<string, string> = {
 }
 
 /** Live commentary timeline: key moments, newest first, written by the agents. */
-export function MomentFeed({ info, moments, lines }: Props) {
+export function MomentFeed({ info, moments, lines, onReplay, onCompare }: Props) {
   return (
     <section className="panel">
       <div className="panel-head">
@@ -41,8 +50,20 @@ export function MomentFeed({ info, moments, lines }: Props) {
                       {MOMENT_LABEL[m.kind] ?? m.kind}
                     </span>
                     {team && <span className="label">{team.short_name}</span>}
+                    <span className="entry-actions">
+                      {line && (
+                        <button className="replay-btn" onClick={() => onCompare(m)} aria-label={`Compare modes for ${m.headline}`}>
+                          Compare
+                        </button>
+                      )}
+                      {REPLAYABLE.has(m.kind) && (
+                        <button className="replay-btn" onClick={() => onReplay(m)} aria-label={`Replay ${m.headline}`}>
+                          ▶ Replay
+                        </button>
+                      )}
+                    </span>
                   </div>
-                  <p className={`entry-text ${line ? '' : 'pending'}`}>{line ? line.text : m.headline}</p>
+                  <p className={`entry-text ${line && !line.retelling ? '' : 'pending'}`}>{line ? line.text : m.headline}</p>
                   {line?.why && (
                     <p className="why">
                       <span className="label">Why it matters</span>
@@ -50,7 +71,7 @@ export function MomentFeed({ info, moments, lines }: Props) {
                     </p>
                   )}
                   <div className="meta">
-                    {line ? <Trace steps={line.steps} /> : 'Agents writing…'}
+                    {line?.retelling ? 'Re-telling for your new mode…' : line ? <Trace steps={line.steps} /> : 'Agents writing…'}
                     {' / '}
                     {m.evidence.length} event{m.evidence.length === 1 ? '' : 's'}
                     {line && line.profile !== 'casual · English' && ` / ${line.profile}`}

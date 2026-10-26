@@ -64,10 +64,13 @@ export type Commentary = {
   moment_id: number
   text: string
   why: string | null
+  base_text: string
+  base_why: string | null
   profile: string
   source: 'agent' | 'fallback'
   ms: number
   steps: AgentStep[]
+  retelling?: boolean
 }
 
 export type Profile = { mode: string; language: string }

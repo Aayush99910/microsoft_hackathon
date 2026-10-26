@@ -15,6 +15,7 @@ export function useMatchStream() {
   const [status, setStatus] = useState<Status>('idle')
   const source = useRef<EventSource | null>(null)
   const session = useRef('')
+  const allEvents = useRef(new Map<number, MatchEvent>()) // every event so far, for replays
 
   useEffect(() => () => source.current?.close(), [])
 
@@ -26,6 +27,7 @@ export function useMatchStream() {
     setMoments([])
     setLines({})
     setStatus('live')
+    allEvents.current = new Map()
 
     session.current = crypto.randomUUID().replaceAll('-', '')
     const query = new URLSearchParams({
@@ -43,6 +45,7 @@ export function useMatchStream() {
     on<MatchInfo>('info', setInfo)
     on<Stats>('stats', setStats)
     on<MatchEvent>('event', (e) => {
+      allEvents.current.set(e.id, e)
       setEvents((old) => [e, ...old].slice(0, RECENT_EVENTS))
       if (e.type === 'period_end' && e.period === 1) setStatus('half_time')
       if (e.type === 'period_start' && e.period === 2) setStatus('live')
@@ -69,10 +72,20 @@ export function useMatchStream() {
     }).catch(() => undefined)
   }
 
+  /** The events a moment is based on, in match order (for replays). */
+  function eventsFor(ids: number[]): MatchEvent[] {
+    return ids.map((id) => allEvents.current.get(id)).filter((e): e is MatchEvent => !!e)
+  }
+
+  /** Replace parts of a commentary line (used when re-telling it in another mode or language). */
+  function patchLine(id: number, patch: Partial<Commentary>) {
+    setLines((old) => (old[id] ? { ...old, [id]: { ...old[id], ...patch } } : old))
+  }
+
   function stop() {
     source.current?.close()
     setStatus('idle')
   }
 
-  return { info, stats, events, moments, lines, status, start, stop, changeProfile }
+  return { info, stats, events, moments, lines, status, start, stop, changeProfile, eventsFor, patchLine }
 }

@@ -15,22 +15,24 @@ type Props = {
   info: MatchInfo
   events: MatchEvent[] // newest first
   overlay: { moment: Moment; line?: Commentary } | null
+  trail?: number // how many on-ball events to draw behind the ball
+  replay?: { label: string; onExit: () => void } // shown while a key moment is being replayed
 }
 
 /**
  * Top-down pitch (105 x 68 m, home attacks left to right): the ball, the last few
  * passes and runs, and a TV lower-third graphic for big moments.
  */
-export function Pitch({ info, events, overlay }: Props) {
+export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, replay }: Props) {
   const names = new Map([...info.home.players, ...info.away.players].map((p) => [p.id, p.name]))
-  const trail = events.filter((e) => ON_BALL.has(e.type)).slice(0, TRAIL).reverse()
+  const trail = events.filter((e) => ON_BALL.has(e.type)).slice(0, trailLength).reverse()
   const latest = events.find((e) => e.player_id) ?? events[0]
   const [ballX, ballY] = trail.length ? endOf(trail[trail.length - 1]) : [52.5, 34]
   const color = (e: MatchEvent) => (e.team === 'away' ? info.away.color : info.home.color)
   const overlayTeam = overlay?.moment.team ? info[overlay.moment.team] : null
 
   return (
-    <div className="pitch-wrap">
+    <div className={`pitch-wrap ${replay ? 'replaying' : ''}`}>
       <svg className="pitch" viewBox="-3 -3 111 74" role="img" aria-label="Live pitch view">
         {/* y is flipped so that y=0 (bottom touchline) is at the bottom of the screen */}
         <g transform="translate(0 68) scale(1 -1)">
@@ -65,6 +67,13 @@ export function Pitch({ info, events, overlay }: Props) {
         </div>
       )}
 
+      {replay && (
+        <div className="replay-badge">
+          <span>{replay.label}</span>
+          <button onClick={replay.onExit}>Back to live</button>
+        </div>
+      )}
+
       {overlay && (
         <div key={overlay.moment.id} className={`lower-third ${overlay.moment.kind}`}>
           <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--panel-2)' }}>
@@ -72,6 +81,7 @@ export function Pitch({ info, events, overlay }: Props) {
           </span>
           <div className="body">
             <div className="kicker">
+              {replay ? 'Replay · ' : ''}
               {MOMENT_LABEL[overlay.moment.kind] ?? overlay.moment.kind} · {minuteLabel(overlay.moment.t)}
             </div>
             <div className="line">{overlay.line?.text ?? overlay.moment.headline}</div>
