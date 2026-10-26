@@ -7,6 +7,7 @@ import { SoundSwitch } from './components/Sound'
 import { ThemeToggle, useTheme } from './components/ThemeToggle'
 import { type Detail, DetailPicker, LANGUAGES, LanguagePicker, MODES, ModePicker } from './components/ProfilePicker'
 import { Scoreboard } from './components/Scoreboard'
+import { SettingsSheet } from './components/SettingsSheet'
 import { Setup } from './components/Setup'
 import { StatsPanel } from './components/StatsPanel'
 import type { Commentary, Moment, Profile } from './types'
@@ -34,13 +35,14 @@ function App() {
   const [speed, setSpeed] = useState(30)
   const [profile, setProfile] = useState<Profile>({ mode: 'casual', language: 'en' })
   const [detail, setDetail] = useState<Detail>('full')
-  const { theme, toggle: toggleTheme } = useTheme()
+  const { theme, setTheme, toggle: toggleTheme } = useTheme()
   const brief = detail === 'brief'
   const match = useMatchStream()
   const overlayMoment = useOverlay(match.moments)
   const { replay, play, stop: stopReplay } = useReplay()
   const speaker = useSpeaker()
   const [comparing, setComparing] = useState<Moment | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [switching, setSwitching] = useState<string | null>(null) // loading message while re-telling moments
   const switchToken = useRef<symbol | null>(null)
   const lastMomentAtSwitch = useRef(Number.MAX_SAFE_INTEGER) // no catch-up re-telling before the first switch
@@ -189,7 +191,7 @@ function App() {
   const unseen = match.moments.length - seenMoments
   return (
     <main className="page match">
-      <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} />
+      <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} onSettings={() => setSettingsOpen(true)} />
 
       <div className="controls-bar">
         <span className="label">Commentary</span>
@@ -277,6 +279,21 @@ function App() {
           </div>
         </section>
       </div>
+
+      {settingsOpen && (
+        <SettingsSheet
+          profile={profile}
+          onProfile={changeProfile}
+          detail={detail}
+          onDetail={setDetail}
+          sound={soundOn}
+          onSound={setSound}
+          speaking={speaker.status === 'speaking'}
+          theme={theme}
+          onTheme={setTheme}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {comparing && match.lines[comparing.id] && (
         <Compare

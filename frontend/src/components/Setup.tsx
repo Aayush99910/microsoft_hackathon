@@ -112,7 +112,7 @@ export function Setup({
         </div>
       </div>
 
-      <div className="kickoff">
+      <div className="kickoff-bar">
         <p className="muted small" style={{ margin: 0, maxWidth: 380 }}>
           Every fixture is generated from scratch and narrated live by AI agents. Same number, same match.
         </p>

@@ -16,10 +16,11 @@ type Props = {
   last: MatchEvent | undefined
   status: Status
   onExit: () => void
+  onSettings: () => void
 }
 
 /** TV-style score bug: team colour blocks, score, clock and status, with match progress underneath. */
-export function Scoreboard({ info, stats, last, status, onExit }: Props) {
+export function Scoreboard({ info, stats, last, status, onExit, onSettings }: Props) {
   const progress = last ? Math.min(1, (last.period === 1 ? Math.min(last.t, 2700) : last.t) / 5400) : 0
   const style = { '--home': info.home.color, '--away': info.away.color } as React.CSSProperties
   return (
@@ -47,6 +48,18 @@ export function Scoreboard({ info, stats, last, status, onExit }: Props) {
           <span className={`status ${status}`}>{STATUS_LABEL[status]}</span>
           <span className="num">{last ? clock(last.t, last.period) : '00:00'}</span>
         </div>
+        <button className="settings-btn" onClick={onSettings} aria-label="Match settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M4 7h10M18 7h2M4 17h4M12 17h8"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            <circle cx="16" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+            <circle cx="10" cy="17" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        </button>
       </header>
       <div className="timeline" aria-hidden>
         <div style={{ width: `${progress * 100}%` }} />

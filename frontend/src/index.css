@@ -381,7 +381,7 @@ button {
   font-size: 22px;
 }
 
-.kickoff {
+.kickoff-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -390,7 +390,7 @@ button {
   flex-wrap: wrap;
 }
 
-.kickoff .btn {
+.kickoff-bar .btn {
   min-width: 220px;
   padding: 16px 32px;
   font-size: 17px;
@@ -1174,6 +1174,7 @@ button {
 
 .sound-switch button {
   flex-direction: row;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -1364,11 +1365,91 @@ button {
   .masthead-right .label {
     display: none;
   }
-  .club-name {
-    font-size: 24px;
-    overflow-wrap: anywhere;
+  /* setup: a compact fixture, one tidy list of options, Kick off pinned to the bottom */
+  .setup > .label {
+    display: block;
+    margin-bottom: 8px;
   }
-  .kickoff .btn {
+  .fixture {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin: 0 0 14px;
+  }
+  .fixture .vs {
+    display: none;
+  }
+  .club,
+  .club.away {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0 12px;
+    min-height: 0;
+    padding: 12px 14px 12px 20px;
+    text-align: left;
+  }
+  .club.away::before {
+    left: 0;
+    right: auto;
+  }
+  .club > .label {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .club-name {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+    font-size: 22px;
+  }
+  .club > .muted {
+    grid-column: 1 / -1;
+    font-size: 13px;
+  }
+  .club.placeholder {
+    min-height: 64px;
+  }
+
+  .options {
+    padding: 0 16px;
+  }
+  .option {
+    gap: 8px;
+    padding: 14px 0;
+  }
+  .option p {
+    font-size: 13px;
+  }
+  .option .seg,
+  .option .select {
+    width: 100%;
+  }
+  .option .seg {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  }
+  .option .match-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .option .match-row:has(.match-no) {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .kickoff-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin: 0 -12px;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+    background: linear-gradient(transparent, var(--bg) 30%);
+  }
+  .kickoff-bar > p {
+    display: none;
+  }
+  .kickoff-bar .btn {
     width: 100%;
   }
 
@@ -1384,37 +1465,11 @@ button {
   }
 
   .controls-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: 0 -12px 10px;
-    padding: 8px 12px;
-    border-radius: 0;
-    box-shadow: none;
-    background: transparent;
+    display: none; /* on phones the settings live in the sheet (the button in the score bar) */
   }
-  .controls-bar::-webkit-scrollbar {
-    display: none;
+  .scorebar {
+    grid-template-columns: auto 1fr auto auto;
   }
-  .controls-bar > .label,
-  .controls-gap {
-    display: none;
-  }
-  .controls-bar .seg {
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-    background: var(--surface);
-  }
-  .controls-bar .seg button {
-    padding: 7px 11px;
-    white-space: nowrap;
-  }
-  .controls-bar .select,
-  .controls-bar .theme-toggle {
-    flex-shrink: 0;
-    background: var(--surface);
-  }
-
   .stage {
     position: sticky;
     top: 62px; /* just under the pinned score bar */
@@ -1453,5 +1508,108 @@ button {
   }
   .entry-head {
     flex-wrap: wrap;
+  }
+}
+
+/* --- phone settings sheet ------------------------------------------------------------ */
+
+.settings-btn {
+  display: none; /* phones only */
+  place-items: center;
+  border: 0;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.settings-btn:hover {
+  color: var(--text);
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(5, 10, 20, 0.5);
+  animation: fade 0.2s ease-out;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 18px 18px 0 0;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  animation: slide-up 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sheet::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 8px;
+  font-size: 18px;
+}
+
+.sheet-head .link {
+  font-size: 16px;
+}
+
+.sheet-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.sheet-row p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.sheet-row .seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+}
+
+.sheet-row .seg button {
+  padding: 10px 8px;
+}
+
+.sheet-row .select {
+  width: 100%;
+  padding: 11px 12px;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-btn {
+    display: grid;
   }
 }

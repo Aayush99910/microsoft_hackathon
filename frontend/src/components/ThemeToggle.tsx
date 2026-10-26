@@ -27,7 +27,21 @@ export function useTheme() {
     }
   }, [theme])
 
-  return { theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }
+  return { theme, setTheme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }
+}
+
+/** Light or dark, as a two-option switch (used in the phone settings sheet). */
+export function ThemePicker({ theme, onChange }: { theme: Theme; onChange: (theme: Theme) => void }) {
+  return (
+    <div className="seg" role="radiogroup" aria-label="Theme">
+      <button role="radio" aria-checked={theme === 'light'} onClick={() => onChange('light')}>
+        Light
+      </button>
+      <button role="radio" aria-checked={theme === 'dark'} onClick={() => onChange('dark')}>
+        Dark
+      </button>
+    </div>
+  )
 }
 
 /** Sun / moon button that switches between the light and dark theme. */
