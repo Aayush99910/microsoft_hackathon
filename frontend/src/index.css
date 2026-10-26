@@ -1699,3 +1699,18 @@ button {
     font-weight: 700;
   }
 }
+
+.sheet-actions {
+  position: sticky;
+  bottom: calc(-20px - env(safe-area-inset-bottom));
+  margin: 4px -16px 0;
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.sheet-actions .btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}

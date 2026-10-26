@@ -295,7 +295,6 @@ function App() {
           onDetail={setDetail}
           sound={soundOn}
           onSound={setSound}
-          speaking={speaker.status === 'speaking'}
           theme={theme}
           onTheme={setTheme}
           onClose={() => setSettingsOpen(false)}
