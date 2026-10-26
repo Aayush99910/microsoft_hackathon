@@ -10,17 +10,20 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from fastapi.responses import Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 # backend/.env, regardless of the directory uvicorn is started from
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+from agents.base import parse_json  # noqa: E402
 from agents.llm import make_client  # noqa: E402  (needs the .env values above)
 from agents.personalizer import LANGUAGES, MODES, Profile  # noqa: E402
 from agents.pipeline import Agents  # noqa: E402
 from generator.match_sim import MatchSimulator, ScriptedGoal  # noqa: E402
 
+from .speech import VOICES, Speech  # noqa: E402
 from .stream import PROFILES, match_stream  # noqa: E402
 
 app = FastAPI(title="Match Brain API")
@@ -34,11 +37,18 @@ app.add_middleware(
 
 client = make_client()
 agents = Agents.from_client(client)
+speech = Speech()
 
 
 class ProfileIn(BaseModel):
     mode: str = "casual"
     language: str = "en"
+
+
+class RetellIn(ProfileIn):
+    text: str = Field(min_length=1, max_length=600)  # the Narrator's original line
+    why: str | None = Field(default=None, max_length=800)  # the Explainer's original explanation
+    facts: dict = {}
 
 
 def check_profile(mode: str, language: str) -> Profile:
@@ -53,6 +63,7 @@ def health():
         "status": "ok",
         "model": os.getenv("FOUNDRY_MODEL_DEPLOYMENT"),
         "agents": "foundry" if client else "fallback (no model configured)",
+        "speech": speech.available,
     }
 
 
@@ -101,3 +112,36 @@ def set_profile(session: str, body: ProfileIn):
         raise HTTPException(404, "no live match for this session")
     PROFILES[session] = check_profile(body.mode, body.language)
     return {"session": session, "profile": PROFILES[session].label()}
+
+
+@app.post("/api/personalize")
+async def retell(body: RetellIn):
+    """Re-tell one moment for a viewer mode and language (instant mode switches and Compare)."""
+    profile = check_profile(body.mode, body.language)
+    if profile.is_default():
+        return {"text": body.text, "why": body.why, "source": "original", "ms": 0}
+    result = await agents.personalizer.adapt(body.text, body.why, body.facts, profile)
+    adapted = parse_json(result.text)
+    if not adapted or not adapted.get("text"):
+        return {"text": body.text, "why": body.why, "source": "fallback", "ms": result.ms}
+    return {"text": adapted["text"], "why": adapted.get("why") or body.why, "source": "agent", "ms": result.ms}
+
+
+@app.get("/api/speech")
+async def speak(text: str = Query(min_length=1, max_length=600), language: str = "en"):
+    """A commentary line read aloud by an Azure AI Speech neural voice (MP3)."""
+    if language not in VOICES:
+        raise HTTPException(400, f"language must be one of {list(VOICES)}")
+    if not speech.available:
+        raise HTTPException(503, "speech is not configured")
+    try:
+        audio = await speech.synthesize(text, language)
+    except Exception:
+        raise HTTPException(502, "speech service unavailable") from None
+    return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=3600"})
+
+
+# In the container, the built React app is served from here too (one URL, no CORS).
+# Mounted last so the /api routes above take priority.
+if (static_dir := os.getenv("STATIC_DIR")) and Path(static_dir).is_dir():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="web")

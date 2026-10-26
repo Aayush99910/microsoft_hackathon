@@ -29,6 +29,21 @@ MIN_WINDOW_SECONDS = 3 * 60  # need this much recent play before judging a trend
 COOLDOWN_SECONDS = 8 * 60  # don't repeat the same trend moment more often than this
 
 
+def shot_location(e: Event) -> dict:
+    """Where a shot was taken from, in words, so agents describe it instead of guessing."""
+    # Shooter's own frame: attacking toward x=105, low y = their right-hand side
+    x, y = (e.x, e.y) if e.team == "home" else (105 - e.x, 68 - e.y)
+    distance = ((105 - x) ** 2 + (34 - y) ** 2) ** 0.5
+    if x >= 99.5 and 24.84 <= y <= 43.16:
+        area = "inside the six-yard box"
+    elif x >= 88.5 and 13.84 <= y <= 54.16:
+        area = "inside the penalty area"
+    else:
+        area = "from outside the box"
+    side = "central" if abs(y - 34) < 9 else ("from the right" if y < 34 else "from the left")
+    return {"shot_distance_m": round(distance), "shot_area": area, "shot_angle": side}
+
+
 @dataclass
 class Moment:
     id: int
@@ -95,6 +110,7 @@ class MomentDetector:
                 "technique": shot.shot.technique.replace("_", " "),
                 "situation": shot.shot.situation.replace("_", " "),
                 "shot_kmh": round(shot_speed_kmh(shot)),
+                **shot_location(shot),
             }
         moments = [self.moment(e, "goal", 3, f"GOAL! {facts['scorer']} scores for {team_name}, {facts['score']}",
                                facts, [x.id for x in self.spell])]
@@ -118,12 +134,14 @@ class MomentDetector:
             "stopped_by": names.get(s.blocker_id),
             "shot_kmh": kmh,
             "body_part": s.body_part.replace("_", " "),
+            **shot_location(e),
         }
         if s.xg >= BIG_CHANCE_XG:
             return [self.moment(e, "big_chance", 2,
-                                f"Big chance for {facts['shooter']} (xG {s.xg:.2f}), {facts['outcome']}", facts, [e.id])]
+                                f"Big chance for {facts['shooter']} (xG {s.xg:.2f}), {facts['outcome']}", facts,
+                                self.build_up())]
         if kmh >= ROCKET_KMH:
-            return [self.moment(e, "rocket", 1, f"{facts['shooter']} hits it at {kmh} km/h", facts, [e.id])]
+            return [self.moment(e, "rocket", 1, f"{facts['shooter']} hits it at {kmh} km/h", facts, self.build_up())]
         return []
 
     def card(self, e: Event) -> Moment:
@@ -131,7 +149,8 @@ class MomentDetector:
         red = e.card.color == "red"
         reason = "second yellow" if e.card.reason == "second_yellow" else "foul"
         facts = {"player": name, "team": self.team_name(e.team), "color": e.card.color, "reason": reason}
-        return self.moment(e, "card", 3 if red else 1, f"{e.card.color.capitalize()} card for {name}", facts, [e.id])
+        return self.moment(e, "card", 3 if red else 1, f"{e.card.color.capitalize()} card for {name}", facts,
+                           self.build_up())
 
     def long_spell(self, e: Event) -> Moment:
         passes = [x for x in self.spell if x.type == "pass" and x.pass_.outcome == "complete"]
@@ -201,8 +220,16 @@ class MomentDetector:
         """team="event" (default) uses the team of the event that triggered it; trends pass the team they are about."""
         team = e.team if team == "event" else team
         player = e.player_id if team == e.team else None
+        info, score = self.state.info, self.state.snapshot()["score"]
+        # Every moment carries the score and minute, so no agent has to guess them
+        facts = {**facts, "minute": int(e.t // 60) + 1,
+                 "score_now": f"{info.home.name} {score['home']}-{score['away']} {info.away.name}"}
         return Moment(id=next(self.ids), t=e.t, period=e.period, kind=kind, importance=importance,
                       headline=headline, team=team, player_id=player, facts=facts, evidence=evidence)
+
+    def build_up(self, events: int = 8) -> list[int]:
+        """The last few events of the current spell, ending with this one: what a replay shows."""
+        return [x.id for x in self.spell[-events:]]
 
     def cooled_down(self, key: str, t: float) -> bool:
         if t - self.last_trend.get(key, -COOLDOWN_SECONDS) < COOLDOWN_SECONDS:

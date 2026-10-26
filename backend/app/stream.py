@@ -149,13 +149,15 @@ def evidence_summary(events: list[Event]) -> dict:
     if not events:
         return {"events": 0}
     passes = [e for e in events if e.type == "pass"]
-    return {
+    summary = {
         "events": len(events),
         "by_type": dict(Counter(e.type for e in events)),
         "seconds_covered": round(events[-1].t - events[0].t),
-        "completed_passes": sum(p.pass_.outcome == "complete" for p in passes),
         "players_involved": len({e.player_id for e in events if e.player_id}),
     }
+    if passes:  # only meaningful when the evidence is passes (a "0" here was misread as "no passes completed")
+        summary["passes_completed_of_attempted"] = f"{sum(p.pass_.outcome == 'complete' for p in passes)}/{len(passes)}"
+    return summary
 
 
 def standout_players(state: MatchState, top: int = 3) -> list[dict]:

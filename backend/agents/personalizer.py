@@ -11,12 +11,17 @@ from agent_framework import Agent
 from .base import AgentResult, run_agent
 
 MODES = {
-    "casual": "A casual fan. Tell the story, no jargon, no stats unless they are striking.",
-    "analyst": "A data-hungry analyst. Lead with the numbers and the tactical meaning; precise and compact.",
-    "tactics": "A coach. Focus on shape, pressing, space and decisions; what each team is doing and why.",
-    "kids": "A child of about 8. Short, simple, fun words; explain any football idea in a friendly way.",
-    "accessible": ("A blind or low-vision viewer using a screen reader or audio. Say clearly who has the ball, "
-                   "which team, where on the pitch and what happened, in plain sentences. No emoji or symbols."),
+    "casual": ("A casual fan watching with friends. Story first, warm and lively, like a mate on the sofa. "
+               "No statistics at all except the score."),
+    "analyst": ("A data analyst. Lead with 2 or 3 precise numbers from the facts (chance quality as a %, "
+                "pass accuracy, pressing rate, threat share) and say what they mean. Compact, like a stats caption."),
+    "tactics": ("A coach on the touchline. Talk only about shape, space, pressing, build-up and decisions: "
+                "what the team did, what worked, what the other side must change. Avoid listing numbers."),
+    "kids": ("A child of about 8. Very short sentences (at most 12 words each), excited and friendly, "
+             "no numbers except the score. The explanation must be ONE short sentence a child understands."),
+    "accessible": ("A blind or low-vision fan listening through a screen reader. In order: which team has the ball, "
+                   "who, where on the pitch (use the shot area and angle if given), what happened, then the score. "
+                   "Plain sentences that sound natural read aloud; no symbols, abbreviations or decimals."),
 }
 LANGUAGES = {"en": "English", "es": "Spanish", "ne": "Nepali", "hi": "Hindi"}
 
@@ -39,7 +44,13 @@ You get JSON with: the viewer (who they are, which language), the commentary lin
 Rewrite BOTH for this viewer, keeping every fact correct. Write BOTH entirely in the viewer's language
 (only names and numbers stay as they are), even when the input is in another language.
 Rules:
-- Never add facts, names or numbers that are not in the input.
+- Never add facts, names or numbers that are not in the input (no locations, techniques or stats you were not given).
+- Only mention players and teams named in the input.
+- Translate every word except names into the viewer's language, including football terms
+  (no English words like "right foot" or "open play" inside Hindi, Nepali or Spanish text).
+- Match the numbers to the viewer: analysts and coaches get precise figures; casual fans, kids and
+  audio viewers get at most one simple number per sentence, rounded and in words where possible.
+  This applies to the explanation too.
 - Never translate player or team names: keep them exactly as written, in the Latin alphabet, even in Hindi or Nepali.
 - Keep it short: the line at most 30 words, the explanation at most 40 words.
 - Reply with JSON only: {"text": "...", "why": "..."} (use null for "why" if none was given)."""

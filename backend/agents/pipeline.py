@@ -129,6 +129,7 @@ class PersonalizerStep(Executor):
             "moment_id": self.job.moment.id,
             "text": text,
             "base_text": writer.text,  # before personalizing; the Narrator's memory of what it said
+            "base_why": explainer.text,  # before personalizing; lets the viewer re-tell it in another mode
             "why": why,
             "profile": profile.label(),
             "source": writer.source,  # whether the main line came from an agent
