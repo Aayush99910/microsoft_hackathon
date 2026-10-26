@@ -39,9 +39,9 @@ class Profile:
 
 
 INSTRUCTIONS = """You adapt live football commentary for one viewer.
-You get JSON with: the viewer (who they are, which language), the commentary line, an optional
-"why it matters" explanation, and the facts behind them.
-Rewrite BOTH for this viewer, keeping every fact correct. Write BOTH entirely in the viewer's language
+You get JSON with: the viewer (who they are, which language), the commentary line, its spoken on-air
+version, an optional "why it matters" explanation, and the facts behind them.
+Rewrite them for this viewer, keeping every fact correct. Write them entirely in the viewer's language
 (only names and numbers stay as they are), even when the input is in another language.
 Rules:
 - Never add facts, names or numbers that are not in the input (no locations, techniques or stats you were not given).
@@ -53,7 +53,12 @@ Rules:
   This applies to the explanation too.
 - Never translate player or team names: keep them exactly as written, in the Latin alphabet, even in Hindi or Nepali.
 - Keep it short: the line at most 30 words, the explanation at most 40 words.
-- Reply with JSON only: {"text": "...", "why": "..."} (use null for "why" if none was given)."""
+- "spoken" is what this viewer's commentator says on air, at most "spoken_max_words" words: the action
+  first in short bursts, then (if there is room) why it matters, in the viewer's language and style
+  (an analyst may hear one or two numbers; kids hear simple excited words; described says who, where, what).
+- "short" is the line in at most 12 words, in the viewer's language and style.
+- Reply with JSON only: {"text": "...", "short": "...", "why": "...", "spoken": "..."}
+  (null for "why" if none was given)."""
 
 
 class Personalizer:
@@ -62,11 +67,15 @@ class Personalizer:
     def __init__(self, client):
         self.agent = Agent(client, INSTRUCTIONS, name="personalizer") if client else None
 
-    async def adapt(self, text: str, why: str | None, facts: dict, profile: Profile) -> AgentResult:
+    async def adapt(self, text: str, why: str | None, facts: dict, profile: Profile,
+                    spoken: str | None = None, spoken_max_words: int = 18, short: str | None = None) -> AgentResult:
         payload = {
+            "spoken_max_words": spoken_max_words,
             "viewer": MODES.get(profile.mode, MODES["casual"]),
             "language": LANGUAGES.get(profile.language, "English"),
             "line": text,
+            "spoken": spoken or text,
+            "short": short or text,
             "why": why,
             "facts": facts,
         }

@@ -1,4 +1,5 @@
-import { MOMENT_LABEL, describe, minuteLabel } from '../format'
+import { MOMENT_LABEL, minuteLabel } from '../format'
+import { Loading } from './Loading'
 import type { Commentary, MatchEvent, MatchInfo, Moment } from '../types'
 
 type End = { end_x: number; end_y: number }
@@ -17,16 +18,16 @@ type Props = {
   overlay: { moment: Moment; line?: Commentary } | null
   trail?: number // how many on-ball events to draw behind the ball
   replay?: { label: string; onExit: () => void } // shown while a key moment is being replayed
+  waiting?: string // shown over the pitch before play starts
+  brief?: boolean // show the short version of the commentary in the lower third
 }
 
 /**
  * Top-down pitch (105 x 68 m, home attacks left to right): the ball, the last few
  * passes and runs, and a TV lower-third graphic for big moments.
  */
-export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, replay }: Props) {
-  const names = new Map([...info.home.players, ...info.away.players].map((p) => [p.id, p.name]))
+export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, replay, waiting, brief }: Props) {
   const trail = events.filter((e) => ON_BALL.has(e.type)).slice(0, trailLength).reverse()
-  const latest = events.find((e) => e.player_id) ?? events[0]
   const [ballX, ballY] = trail.length ? endOf(trail[trail.length - 1]) : [52.5, 34]
   const color = (e: MatchEvent) => (e.team === 'away' ? info.away.color : info.home.color)
   const overlayTeam = overlay?.moment.team ? info[overlay.moment.team] : null
@@ -60,12 +61,7 @@ export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, repla
         </g>
       </svg>
 
-      {latest && (
-        <div className="now-playing">
-          <span className="bar" style={{ background: latest.team ? color(latest) : 'var(--muted)' }} />
-          {describe(latest, names)}
-        </div>
-      )}
+      {waiting && <Loading text={waiting} className="pitch-loading" />}
 
       {replay && (
         <div className="replay-badge">
@@ -76,7 +72,7 @@ export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, repla
 
       {overlay && (
         <div key={overlay.moment.id} className={`lower-third ${overlay.moment.kind}`}>
-          <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--panel-2)' }}>
+          <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--surface-3)' }}>
             {overlayTeam?.short_name ?? minuteLabel(overlay.moment.t)}
           </span>
           <div className="body">
@@ -84,7 +80,9 @@ export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, repla
               {replay ? 'Replay · ' : ''}
               {MOMENT_LABEL[overlay.moment.kind] ?? overlay.moment.kind} · {minuteLabel(overlay.moment.t)}
             </div>
-            <div className="line">{overlay.line?.text ?? overlay.moment.headline}</div>
+            <div className="line">
+              {(brief ? overlay.line?.short : undefined) ?? overlay.line?.text ?? overlay.moment.headline}
+            </div>
           </div>
         </div>
       )}
@@ -93,25 +91,27 @@ export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, repla
 }
 
 function PitchLines() {
-  const stroke = { stroke: 'rgba(255,255,255,0.55)', strokeWidth: 0.25, fill: 'none' }
+  // Colours come from the theme (light / dark) in index.css
   return (
     <g>
-      <rect x={-3} y={-3} width={111} height={74} fill="#22432f" />
+      <rect className="pitch-grass" x={-3} y={-3} width={111} height={74} />
       {Array.from({ length: 10 }, (_, i) => (
-        <rect key={i} x={i * 10.5} y={0} width={10.5} height={68} fill={i % 2 ? '#244731' : '#22432f'} />
+        <rect key={i} className={i % 2 ? 'pitch-stripe' : 'pitch-grass'} x={i * 10.5} y={0} width={10.5} height={68} />
       ))}
-      <rect x={0} y={0} width={105} height={68} {...stroke} />
-      <line x1={52.5} y1={0} x2={52.5} y2={68} {...stroke} />
-      <circle cx={52.5} cy={34} r={9.15} {...stroke} />
-      <circle cx={52.5} cy={34} r={0.35} fill="rgba(255,255,255,0.55)" />
-      <rect x={0} y={13.84} width={16.5} height={40.32} {...stroke} />
-      <rect x={88.5} y={13.84} width={16.5} height={40.32} {...stroke} />
-      <rect x={0} y={24.84} width={5.5} height={18.32} {...stroke} />
-      <rect x={99.5} y={24.84} width={5.5} height={18.32} {...stroke} />
-      <path d="M 16.5 26.7 A 9.15 9.15 0 0 1 16.5 41.3" {...stroke} />
-      <path d="M 88.5 26.7 A 9.15 9.15 0 0 0 88.5 41.3" {...stroke} />
-      <rect x={-1.6} y={30.34} width={1.6} height={7.32} {...stroke} />
-      <rect x={105} y={30.34} width={1.6} height={7.32} {...stroke} />
+      <g className="pitch-markings">
+        <rect x={0} y={0} width={105} height={68} />
+        <line x1={52.5} y1={0} x2={52.5} y2={68} />
+        <circle cx={52.5} cy={34} r={9.15} />
+        <rect x={0} y={13.84} width={16.5} height={40.32} />
+        <rect x={88.5} y={13.84} width={16.5} height={40.32} />
+        <rect x={0} y={24.84} width={5.5} height={18.32} />
+        <rect x={99.5} y={24.84} width={5.5} height={18.32} />
+        <path d="M 16.5 26.7 A 9.15 9.15 0 0 1 16.5 41.3" />
+        <path d="M 88.5 26.7 A 9.15 9.15 0 0 0 88.5 41.3" />
+        <rect x={-1.6} y={30.34} width={1.6} height={7.32} />
+        <rect x={105} y={30.34} width={1.6} height={7.32} />
+      </g>
+      <circle className="pitch-spot" cx={52.5} cy={34} r={0.35} />
     </g>
   )
 }

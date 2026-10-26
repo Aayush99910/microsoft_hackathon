@@ -14,6 +14,7 @@ export function minuteLabel(t: number): string {
 
 /** Short broadcast label for each kind of key moment. */
 export const MOMENT_LABEL: Record<string, string> = {
+  kickoff: 'Kick-off',
   goal: 'Goal',
   milestone: 'Milestone',
   big_chance: 'Chance',

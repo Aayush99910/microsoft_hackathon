@@ -52,3 +52,19 @@ export function LanguagePicker({ profile, onChange }: Props) {
     </select>
   )
 }
+
+export type Detail = 'brief' | 'full'
+
+/** How much commentary to show: one short line per moment, or the full line with "why it matters". */
+export function DetailPicker({ detail, onChange }: { detail: Detail; onChange: (detail: Detail) => void }) {
+  return (
+    <div className="seg" role="radiogroup" aria-label="Commentary detail">
+      <button role="radio" aria-checked={detail === 'brief'} onClick={() => onChange('brief')}>
+        Brief
+      </button>
+      <button role="radio" aria-checked={detail === 'full'} onClick={() => onChange('full')}>
+        Detailed
+      </button>
+    </div>
+  )
+}

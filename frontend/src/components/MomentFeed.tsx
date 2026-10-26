@@ -1,5 +1,6 @@
 import { MOMENT_LABEL, minuteLabel } from '../format'
 import type { AgentStep, Commentary, MatchInfo, Moment } from '../types'
+import { Loading } from './Loading'
 
 type Props = {
   info: MatchInfo
@@ -7,6 +8,9 @@ type Props = {
   lines: Record<number, Commentary>
   onReplay: (moment: Moment) => void
   onCompare: (moment: Moment) => void
+  waiting: string // shown while there are no moments yet
+  switching: string | null // shown while the latest moments are re-told for a new mode or language
+  brief: boolean // one short line per moment, no explanation or agent details
 }
 
 // Moments built from a passage of play that is worth watching again
@@ -20,16 +24,13 @@ const AGENT_NAME: Record<string, string> = {
 }
 
 /** Live commentary timeline: key moments, newest first, written by the agents. */
-export function MomentFeed({ info, moments, lines, onReplay, onCompare }: Props) {
+export function MomentFeed({ info, moments, lines, onReplay, onCompare, waiting, switching, brief }: Props) {
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <span className="label">Commentary</span>
-        <span className="label">{moments.length ? `${moments.length} key moments` : ''}</span>
-      </div>
-      <div className="feed">
-        {moments.length === 0 && <p className="muted small empty">Key moments will appear here as the match unfolds.</p>}
-        <ol>
+    <div className="feed">
+        {/* While switching mode or language, show only the loader; the cards come back all at once, re-told */}
+        {switching && <Loading text={switching} className="feed-loading" spinner />}
+        {!switching && moments.length === 0 && <Loading text={waiting} className="feed-loading" />}
+        <ol hidden={!!switching}>
           {moments.map((m) => {
             const line = lines[m.id]
             const team = m.team ? info[m.team] : null
@@ -63,14 +64,16 @@ export function MomentFeed({ info, moments, lines, onReplay, onCompare }: Props)
                       )}
                     </span>
                   </div>
-                  <p className={`entry-text ${line && !line.retelling ? '' : 'pending'}`}>{line ? line.text : m.headline}</p>
-                  {line?.why && (
+                  <p className={`entry-text ${line && !line.retelling ? '' : 'pending'}`}>
+                    {line ? (brief ? line.short ?? line.text : line.text) : m.headline}
+                  </p>
+                  {!brief && line?.why && (
                     <p className="why">
                       <span className="label">Why it matters</span>
                       {line.why}
                     </p>
                   )}
-                  <div className="meta">
+                  <div className="meta" hidden={brief}>
                     {line?.retelling ? 'Re-telling for your new mode…' : line ? <Trace steps={line.steps} /> : 'Agents writing…'}
                     {' / '}
                     {m.evidence.length} event{m.evidence.length === 1 ? '' : 's'}
@@ -81,8 +84,7 @@ export function MomentFeed({ info, moments, lines, onReplay, onCompare }: Props)
             )
           })}
         </ol>
-      </div>
-    </section>
+    </div>
   )
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { MatchInfo, Profile, Team } from '../types'
-import { LanguagePicker, MODES, ModePicker } from './ProfilePicker'
+import { type Detail, DetailPicker, LanguagePicker, MODES, ModePicker } from './ProfilePicker'
+import { SoundSwitch } from './Sound'
 
 const SPEEDS = [
   { value: 10, label: 'Relaxed', hint: '≈ 9 min' },
@@ -12,6 +13,10 @@ type Props = {
   seed: number
   speed: number
   profile: Profile
+  sound: boolean
+  onSound: (on: boolean) => void
+  detail: Detail
+  onDetail: (detail: Detail) => void
   onSeed: (seed: number) => void
   onSpeed: (speed: number) => void
   onProfile: (profile: Profile) => void
@@ -19,7 +24,19 @@ type Props = {
 }
 
 /** Pre-match screen: the fixture, how to tell the story, how fast to play, and kick-off. */
-export function Setup({ seed, speed, profile, onSeed, onSpeed, onProfile, onKickOff }: Props) {
+export function Setup({
+  seed,
+  speed,
+  profile,
+  sound,
+  onSound,
+  detail,
+  onDetail,
+  onSeed,
+  onSpeed,
+  onProfile,
+  onKickOff,
+}: Props) {
   const [info, setInfo] = useState<MatchInfo | null>(null)
 
   useEffect(() => {
@@ -62,6 +79,22 @@ export function Setup({ seed, speed, profile, onSeed, onSpeed, onProfile, onKick
             <ModePicker profile={profile} onChange={onProfile} />
             <LanguagePicker profile={profile} onChange={onProfile} />
           </div>
+        </div>
+
+        <div className="option">
+          <div>
+            <span className="label">Detail</span>
+            <p className="muted small">{detail === 'brief' ? 'One short line per moment' : 'Full commentary with why it matters'}</p>
+          </div>
+          <DetailPicker detail={detail} onChange={onDetail} />
+        </div>
+
+        <div className="option">
+          <div>
+            <span className="label">Sound</span>
+            <p className="muted small">Commentator voice and crowd. Change it any time.</p>
+          </div>
+          <SoundSwitch sound={sound} onSound={onSound} />
         </div>
 
         <div className="option">

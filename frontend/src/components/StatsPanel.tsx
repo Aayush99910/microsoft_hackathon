@@ -6,23 +6,7 @@ const pct = (v: number) => `${Math.round(v)}%`
 
 /** Head-to-head stat bars plus a momentum meter for the last 5 minutes. */
 export function StatsPanel({ info, stats }: { info: MatchInfo; stats: Stats | null }) {
-  const head = (
-    <div className="panel-head">
-      <span className="label">Match stats</span>
-      <span className="label">
-        <span style={{ color: info.home.color }}>{info.home.short_name}</span> ·{' '}
-        <span style={{ color: info.away.color }}>{info.away.short_name}</span>
-      </span>
-    </div>
-  )
-  if (!stats) {
-    return (
-      <section className="panel">
-        {head}
-        <p className="muted small empty">Waiting for kick-off…</p>
-      </section>
-    )
-  }
+  if (!stats) return <p className="muted small empty">Stats appear after kick-off…</p>
 
   const { home, away } = stats.teams
   const rows: Row[] = [
@@ -38,9 +22,7 @@ export function StatsPanel({ info, stats }: { info: MatchInfo; stats: Stats | nu
   const leader = momentum > 0.15 ? info.home : momentum < -0.15 ? info.away : null
 
   return (
-    <section className="panel">
-      {head}
-      <div className="stats-body">
+    <div className="stats-body">
         <div className="momentum">
           <div className="momentum-head">
             <span className="label">Momentum, last 5 min</span>
@@ -76,7 +58,6 @@ export function StatsPanel({ info, stats }: { info: MatchInfo; stats: Stats | nu
             </div>
           )
         })}
-      </div>
-    </section>
+    </div>
   )
 }

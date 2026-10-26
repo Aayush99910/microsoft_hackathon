@@ -6,7 +6,7 @@ export function profileLabel(p: Profile): string {
   return `${p.mode} · ${LANGUAGE_NAME[p.language] ?? p.language}`
 }
 
-export type Retold = { text: string; why: string | null; source: string; ms: number }
+export type Retold = { text: string; why: string | null; spoken: string; short: string; source: string; ms: number }
 
 /** Ask the Personalizer agent to re-tell one moment for a mode and language. */
 export async function retell(moment: Moment, line: Commentary, profile: Profile): Promise<Retold> {
@@ -16,6 +16,8 @@ export async function retell(moment: Moment, line: Commentary, profile: Profile)
     body: JSON.stringify({
       text: line.base_text,
       why: line.base_why,
+      spoken: line.base_spoken ?? line.base_text,
+      short: line.base_short ?? line.base_text,
       facts: moment.facts,
       mode: profile.mode,
       language: profile.language,

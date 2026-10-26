@@ -5,14 +5,17 @@ Plays a simulated match at `speed` x real time and sends, in order of happening:
     event       every match event
     stats       the live state, every ~15 match seconds and after goals
     moment      a detected key moment (headline + facts + evidence event ids)
-    commentary  the agents' output for a moment, when it arrives (runs in the background)
+    commentary  the agents' output for a moment, sent as soon as it is ready
     end         the match is over
 
+Everything except commentary is shown BROADCAST_DELAY seconds after it happens (see match_stream).
 Each stream is one viewer session. The viewer's profile (mode, language) can be changed
 mid-match through PROFILES, and applies from the next moment on.
 """
 
 import asyncio
+import heapq
+import itertools
 import json
 from collections import Counter
 from collections.abc import AsyncIterator
@@ -27,6 +30,18 @@ from generator.match_sim import ScriptedGoal, simulate_match
 
 STATS_EVERY_SECONDS = 15  # match time between stats messages
 MAX_PARALLEL_PIPELINES = 3
+# Real seconds between the server analysing an event and the viewer seeing it. The agents
+# (2-4 s) and the voice (about 1 s) finish within it, so commentary arrives with its moment.
+BROADCAST_DELAY = 5.0
+
+
+def spoken_word_budget(speed: float) -> int:
+    """How many words the commentator has time to say per moment at this playback speed."""
+    if speed <= 12:
+        return 32  # relaxed: say what happened and why it matters
+    if speed <= 40:
+        return 18  # standard
+    return 10  # highlights: short bursts only
 
 PROFILES: dict[str, Profile] = {}  # session id -> current viewer profile
 
@@ -37,49 +52,71 @@ def sse(kind: str, data: dict) -> str:
 
 async def match_stream(seed: int, speed: float, script: list[ScriptedGoal], agents: Agents,
                        session: str, profile: Profile) -> AsyncIterator[str]:
+    """Stream a match with a short broadcast delay.
+
+    The server reads the match BROADCAST_DELAY seconds ahead of what the viewer sees: each event
+    is analysed (and its key moments sent to the agents) as soon as it happens, but is shown on
+    screen a few seconds later. Commentary is sent the moment it is ready, so it usually reaches
+    the browser before its moment does, and card, voice and crowd reaction land together.
+    """
     info, events = simulate_match(seed, script)  # generating takes ~0.03 s; playback is what takes time
     by_id = {e.id: e for e in events}
     state = MatchState(info)
     detector = MomentDetector(state)
     PROFILES[session] = profile
 
-    replies: asyncio.Queue[str] = asyncio.Queue()  # agent output finished in the background
+    loop = asyncio.get_running_loop()
+    outbox: list[tuple[float, int, str]] = []  # (send at, order, message), sent in time order
+    order = itertools.count()
+    ready: asyncio.Queue[str] = asyncio.Queue()  # commentary finished in the background
     limit = asyncio.Semaphore(MAX_PARALLEL_PIPELINES)
     tasks: set[asyncio.Task] = set()
     key_moments: list[str] = []
     previous_lines: list[str] = []
-    loop = asyncio.get_running_loop()
+
+    def send_at(when: float, message: str) -> None:
+        heapq.heappush(outbox, (when, next(order), message))
 
     async def comment(job: Job):
         async with limit:
             output = await run_pipeline(agents, job)
         previous_lines.append(output["base_text"])
-        await replies.put(sse("commentary", output))
+        await ready.put(sse("commentary", output))
 
-    async def wait(seconds: float) -> AsyncIterator[str]:
-        """Sleep for `seconds`, sending any commentary that finishes meanwhile."""
-        deadline = loop.time() + seconds
-        while (remaining := deadline - loop.time()) > 0:
-            try:
-                yield await asyncio.wait_for(replies.get(), remaining)
-            except TimeoutError:
+    async def deliver(until: float) -> AsyncIterator[str]:
+        """Send everything due before `until`, and commentary as soon as it is ready."""
+        while True:
+            while not ready.empty():
+                send_at(loop.time(), ready.get_nowait())
+            now = loop.time()
+            while outbox and outbox[0][0] <= now:
+                yield heapq.heappop(outbox)[2]
+            if now >= until:
                 return
+            wake = min(until, outbox[0][0]) if outbox else until
+            try:
+                send_at(loop.time(), await asyncio.wait_for(ready.get(), max(0.0, wake - now)))
+            except TimeoutError:
+                pass
 
     yield sse("info", info.model_dump())
-    previous_t, last_stats_t = 0.0, -STATS_EVERY_SECONDS
+    started = loop.time()
+    played, previous_t, last_stats_t = 0.0, 0.0, -STATS_EVERY_SECONDS
     try:
         for e in events:
-            async for message in wait(max(0.0, e.t - previous_t) / speed):
-                yield message
+            played += max(0.0, e.t - previous_t) / speed  # real seconds of match played so far
             previous_t = e.t
+            async for message in deliver(started + played):
+                yield message
 
             state.update(e)
-            yield sse("event", e.model_dump(by_alias=True))
+            on_screen = loop.time() + BROADCAST_DELAY
+            send_at(on_screen, sse("event", e.model_dump(by_alias=True)))
             for moment in detector.check(e):
-                yield sse("moment", asdict(moment))
+                send_at(on_screen, sse("moment", asdict(moment)))
                 job = Job(
                     moment=moment,
-                    context=agent_context(state, moment),
+                    context={**agent_context(state, moment), "spoken_max_words": spoken_word_budget(speed)},
                     evidence=evidence_summary([by_id[i] for i in moment.evidence if i in by_id]),
                     story={"key_moments": list(key_moments), "standout_players": standout_players(state)},
                     previous_lines=list(previous_lines),
@@ -93,12 +130,15 @@ async def match_stream(seed: int, speed: float, script: list[ScriptedGoal], agen
 
             if e.t - last_stats_t >= STATS_EVERY_SECONDS or e.type in ("goal", "period_end"):
                 last_stats_t = e.t
-                yield sse("stats", state.snapshot())
+                send_at(on_screen, sse("stats", state.snapshot()))
 
         if tasks:  # let the last commentary finish (the full-time recap)
             await asyncio.wait(tasks, timeout=30)
-        while not replies.empty():
-            yield replies.get_nowait()
+        last_due = max((when for when, _, _ in outbox), default=loop.time())
+        async for message in deliver(max(last_due, loop.time())):
+            yield message
+        while not ready.empty():
+            yield ready.get_nowait()
         yield sse("end", {"score": state.snapshot()["score"]})
     finally:
         for task in tasks:  # viewer left early: stop pending agent work

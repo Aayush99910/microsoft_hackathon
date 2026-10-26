@@ -1,24 +1,76 @@
 """Spoken commentary with Azure AI Speech (neural text-to-speech), through the Foundry resource.
 
+Each language has a commentator voice, and each line is read at an intensity that fits the
+moment: calm for build-up, lively for pressure and chances, excited for goals. Big moments are
+spoken faster, and use the voice's excited style where it has one.
+
 Same authentication as the agents: the API key locally, Microsoft Entra ID (managed identity) on Azure.
-Results are cached, so replaying a moment or several viewers hearing the same line costs nothing extra.
+Results are cached, so replays and repeated lines cost nothing extra.
 """
 
 import os
 from collections import OrderedDict
+from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
 import httpx
 
-# One commentator voice per language
+
+@dataclass(frozen=True)
+class Voice:
+    locale: str
+    name: str
+    styles: dict[str, str]  # intensity -> speaking style ("" = the voice's default delivery)
+
+
+# Microsoft's MAI voices: natural, expressive, and fast enough for live use (under 1 s per line;
+# the HD voices took about 4 s, which made commentary lag behind the match).
 VOICES = {
-    "en": ("en-GB", "en-GB-RyanNeural"),
-    "es": ("es-ES", "es-ES-AlvaroNeural"),
-    "hi": ("hi-IN", "hi-IN-MadhurNeural"),
-    "ne": ("ne-NP", "ne-NP-SagarNeural"),
+    "en": Voice("en-US", "en-US-Ethan:MAI-Voice-2.1-Flash", {"lively": "happy", "excited": "excited"}),
+    "es": Voice("es-MX", "es-MX-Alejo:MAI-Voice-2.1-Flash", {"lively": "happy", "excited": "excited"}),
+    "hi": Voice("hi-IN", "hi-IN-Dhruv:MAI-Voice-2.1-Flash", {"lively": "happy", "excited": "excited"}),
+    "ne": Voice("ne-NP", "ne-NP-SagarNeural", {}),  # the only Nepali voice; pace does the work
 }
+# English has a different commentator for each viewing mode (casual uses the default above)
+ENGLISH_BY_MODE = {
+    "analyst": Voice("en-US", "en-US-Grant:MAI-Voice-2.1-Flash",  # calm and precise
+                     {"calm": "narrator", "lively": "narrator", "excited": "narrator"}),
+    "tactics": Voice("en-GB", "en-GB-Harry:MAI-Voice-2.1-Flash",  # the studio pundit
+                     {"calm": "narrator", "lively": "narrator", "excited": "joyful"}),
+    "kids": Voice("en-GB", "en-GB-Emily:MAI-Voice-2.1-Flash",  # cheerful
+                  {"calm": "happy", "lively": "happy", "excited": "excited"}),
+    "accessible": Voice("en-US", "en-US-Sage:MAI-Voice-2.1-Flash",  # clear, steady
+                        {"calm": "narrator", "lively": "narrator", "excited": "narrator"}),
+}
+# Speaking rate: a base pace per mode, plus a boost for big moments. Commentators talk faster than
+# a narrator; described commentary stays at a normal, clear pace. (+25% turns a 5.7 s line into 4.5 s.)
+MODE_RATE = {"casual": 12, "analyst": 8, "tactics": 8, "kids": 10, "accessible": 0}
+PROSODY = {"calm": 0, "lively": 6, "excited": 14}  # boost per intensity, in %
+INTENSITIES = tuple(PROSODY)
 MAX_CHARS = 600
 CACHE_SIZE = 200
+
+
+def voice_for(language: str, mode: str) -> Voice:
+    if language == "en" and mode in ENGLISH_BY_MODE:
+        return ENGLISH_BY_MODE[mode]
+    return VOICES.get(language, VOICES["en"])
+
+
+def build_ssml(text: str, language: str, intensity: str, mode: str = "casual") -> str:
+    voice = voice_for(language, mode)
+    boost = PROSODY.get(intensity, 0) // (2 if mode == "accessible" else 1)  # keep described speech clear
+    rate = MODE_RATE.get(mode, 12) + boost
+    body = f"<prosody rate='+{rate}%'>{escape(text)}</prosody>"
+    style = voice.styles.get(intensity, "")
+    if style:  # the style wraps the prosody (a style inside prosody is silently ignored)
+        degree = "2" if intensity == "excited" else "1"
+        body = f"<mstts:express-as style='{style}' styledegree='{degree}'>{body}</mstts:express-as>"
+    return (
+        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
+        f"xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='{voice.locale}'>"
+        f"<voice name='{voice.name}'>{body}</voice></speak>"
+    )
 
 
 class Speech:
@@ -31,22 +83,19 @@ class Speech:
             from azure.identity.aio import DefaultAzureCredential
 
             self.credential = DefaultAzureCredential()
-        self.cache: OrderedDict[tuple[str, str], bytes] = OrderedDict()
+        self.cache: OrderedDict[tuple[str, str, str, str], bytes] = OrderedDict()
 
     @property
     def available(self) -> bool:
         return bool(self.url and (self.key or self.credential))
 
-    async def synthesize(self, text: str, language: str) -> bytes:
+    async def synthesize(self, text: str, language: str, intensity: str = "calm", mode: str = "casual") -> bytes:
         text = text.strip()[:MAX_CHARS]
-        cached = self.cache.get((language, text))
-        if cached:
-            self.cache.move_to_end((language, text))
-            return cached
+        key = (language, intensity, mode, text)
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
 
-        locale, voice = VOICES.get(language, VOICES["en"])
-        ssml = (f"<speak version='1.0' xml:lang='{locale}'><voice name='{voice}'>"
-                f"<prosody rate='+8%'>{escape(text)}</prosody></voice></speak>")
         headers = {
             "Content-Type": "application/ssml+xml",
             "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
@@ -59,10 +108,10 @@ class Speech:
             headers["Authorization"] = f"Bearer {token.token}"
 
         async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post(self.url, content=ssml.encode(), headers=headers)
+            response = await client.post(self.url, content=build_ssml(text, language, intensity, mode).encode(), headers=headers)
         response.raise_for_status()
 
-        self.cache[(language, text)] = response.content
+        self.cache[key] = response.content
         if len(self.cache) > CACHE_SIZE:
             self.cache.popitem(last=False)
         return response.content

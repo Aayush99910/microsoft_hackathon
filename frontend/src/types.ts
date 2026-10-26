@@ -62,10 +62,16 @@ export type AgentStep = { agent: string; ms: number; source: 'agent' | 'fallback
 
 export type Commentary = {
   moment_id: number
+  kind: string
+  importance: number
   text: string
   why: string | null
   base_text: string
   base_why: string | null
+  spoken?: string // the on-air version the voice reads (short bursts)
+  base_spoken?: string
+  short?: string // brief version (about 12 words)
+  base_short?: string
   profile: string
   source: 'agent' | 'fallback'
   ms: number

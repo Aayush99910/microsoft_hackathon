@@ -10,7 +10,13 @@ const STATUS_LABEL: Record<Status, string> = {
   error: 'Lost feed',
 }
 
-type Props = { info: MatchInfo; stats: Stats | null; last: MatchEvent | undefined; status: Status; onExit: () => void }
+type Props = {
+  info: MatchInfo
+  stats: Stats | null
+  last: MatchEvent | undefined
+  status: Status
+  onExit: () => void
+}
 
 /** TV-style score bug: team colour blocks, score, clock and status, with match progress underneath. */
 export function Scoreboard({ info, stats, last, status, onExit }: Props) {

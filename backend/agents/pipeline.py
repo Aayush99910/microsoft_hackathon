@@ -44,6 +44,8 @@ class Draft:
     ms: int
     source: str  # "agent", "fallback" or "skipped"
     error: str | None = None
+    spoken: str | None = None  # the writer's on-air version (short bursts), read by the voice
+    short: str | None = None  # the writer's brief version (about 12 words)
 
 
 @dataclass
@@ -74,11 +76,18 @@ class Writer(Executor):
         if job.moment.kind in RECAP_KINDS:
             result = await self.agents.recap.write(job.moment, job.context, job.story)
             agent, fallback = "recap", fallback_recap(job)
+            text, spoken = result.text, result.text  # a recap is already written to be read aloud
+            short = None
         else:
             result = await self.agents.narrator.write(job.moment, job.context, job.previous_lines)
             agent, fallback = "narrator", job.moment.headline
-        source = "agent" if result.text else "fallback"
-        await ctx.send_message(Draft("writer", agent, result.text or fallback, result.ms, source, result.error))
+            reply = parse_json(result.text) or {}
+            text = reply.get("line") or (result.text if result.text and not result.text.lstrip().startswith("{") else None)
+            spoken = reply.get("spoken") or text
+            short = reply.get("short")
+        source = "agent" if text else "fallback"
+        await ctx.send_message(Draft("writer", agent, text or fallback, result.ms, source, result.error,
+                                     spoken=spoken or text or fallback, short=short or text or fallback))
 
 
 class ExplainerStep(Executor):
@@ -109,17 +118,20 @@ class PersonalizerStep(Executor):
     async def personalize(self, drafts: list[Draft], ctx: WorkflowContext[Never, dict]) -> None:
         writer = next(d for d in drafts if d.role == "writer")
         explainer = next(d for d in drafts if d.role == "explainer")
-        text, why = writer.text, explainer.text
+        text, why, spoken, short = writer.text, explainer.text, writer.spoken, writer.short
         profile = self.job.profile
         steps = [step(writer), step(explainer)]
 
         if profile.is_default():
             steps.append({"agent": "personalizer", "ms": 0, "source": "skipped"})
         else:
-            result = await self.agents.personalizer.adapt(text, why, self.job.moment.facts, profile)
+            result = await self.agents.personalizer.adapt(text, why, self.job.moment.facts, profile, spoken,
+                                                          self.job.context.get("spoken_max_words", 18), short)
             adapted = parse_json(result.text)
             if adapted and adapted.get("text"):
                 text, why = adapted["text"], adapted.get("why") or why
+                spoken = adapted.get("spoken") or text
+                short = adapted.get("short") or short
                 steps.append({"agent": "personalizer", "ms": result.ms, "source": "agent"})
             else:
                 steps.append({"agent": "personalizer", "ms": result.ms, "source": "fallback",
@@ -127,9 +139,15 @@ class PersonalizerStep(Executor):
 
         await ctx.yield_output({
             "moment_id": self.job.moment.id,
+            "kind": self.job.moment.kind,  # lets the browser prepare the right voice before the moment shows
+            "importance": self.job.moment.importance,
             "text": text,
             "base_text": writer.text,  # before personalizing; the Narrator's memory of what it said
             "base_why": explainer.text,  # before personalizing; lets the viewer re-tell it in another mode
+            "spoken": spoken,  # the on-air version the voice reads
+            "base_spoken": writer.spoken,
+            "short": short,  # brief version (about 12 words) for viewers who choose Brief
+            "base_short": writer.short,
             "why": why,
             "profile": profile.label(),
             "source": writer.source,  # whether the main line came from an agent

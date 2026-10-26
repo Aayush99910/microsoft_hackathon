@@ -23,7 +23,7 @@ from agents.personalizer import LANGUAGES, MODES, Profile  # noqa: E402
 from agents.pipeline import Agents  # noqa: E402
 from generator.match_sim import MatchSimulator, ScriptedGoal  # noqa: E402
 
-from .speech import VOICES, Speech  # noqa: E402
+from .speech import INTENSITIES, VOICES, Speech  # noqa: E402
 from .stream import PROFILES, match_stream  # noqa: E402
 
 app = FastAPI(title="Match Brain API")
@@ -48,6 +48,9 @@ class ProfileIn(BaseModel):
 class RetellIn(ProfileIn):
     text: str = Field(min_length=1, max_length=600)  # the Narrator's original line
     why: str | None = Field(default=None, max_length=800)  # the Explainer's original explanation
+    spoken: str | None = Field(default=None, max_length=600)  # the Narrator's original on-air version
+    spoken_max_words: int = Field(default=18, ge=5, le=40)
+    short: str | None = Field(default=None, max_length=300)  # the Narrator's original brief version
     facts: dict = {}
 
 
@@ -118,24 +121,31 @@ def set_profile(session: str, body: ProfileIn):
 async def retell(body: RetellIn):
     """Re-tell one moment for a viewer mode and language (instant mode switches and Compare)."""
     profile = check_profile(body.mode, body.language)
+    spoken, short = body.spoken or body.text, body.short or body.text
     if profile.is_default():
-        return {"text": body.text, "why": body.why, "source": "original", "ms": 0}
-    result = await agents.personalizer.adapt(body.text, body.why, body.facts, profile)
+        return {"text": body.text, "why": body.why, "spoken": spoken, "short": short, "source": "original", "ms": 0}
+    result = await agents.personalizer.adapt(body.text, body.why, body.facts, profile, spoken,
+                                             body.spoken_max_words, short)
     adapted = parse_json(result.text)
     if not adapted or not adapted.get("text"):
-        return {"text": body.text, "why": body.why, "source": "fallback", "ms": result.ms}
-    return {"text": adapted["text"], "why": adapted.get("why") or body.why, "source": "agent", "ms": result.ms}
+        return {"text": body.text, "why": body.why, "spoken": spoken, "short": short, "source": "fallback", "ms": result.ms}
+    return {"text": adapted["text"], "why": adapted.get("why") or body.why,
+            "spoken": adapted.get("spoken") or adapted["text"], "short": adapted.get("short") or short,
+            "source": "agent", "ms": result.ms}
 
 
 @app.get("/api/speech")
-async def speak(text: str = Query(min_length=1, max_length=600), language: str = "en"):
-    """A commentary line read aloud by an Azure AI Speech neural voice (MP3)."""
-    if language not in VOICES:
-        raise HTTPException(400, f"language must be one of {list(VOICES)}")
+async def speak(text: str = Query(min_length=1, max_length=600), language: str = "en", intensity: str = "calm",
+                mode: str = "casual"):
+    """A commentary line read aloud by an Azure AI Speech neural voice (MP3): the mode picks the
+    commentator, the intensity (calm / lively / excited) how excited they sound."""
+    if language not in VOICES or intensity not in INTENSITIES or mode not in MODES:
+        raise HTTPException(400, f"language one of {list(VOICES)}, intensity one of {list(INTENSITIES)}, "
+                                 f"mode one of {list(MODES)}")
     if not speech.available:
         raise HTTPException(503, "speech is not configured")
     try:
-        audio = await speech.synthesize(text, language)
+        audio = await speech.synthesize(text, language, intensity, mode)
     except Exception:
         raise HTTPException(502, "speech service unavailable") from None
     return Response(audio, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=3600"})

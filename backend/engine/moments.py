@@ -49,7 +49,7 @@ class Moment:
     id: int
     t: float
     period: int
-    kind: str  # goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
+    kind: str  # kickoff, goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
     importance: int  # 1 = minor, 2 = notable, 3 = major
     headline: str
     team: str | None = None
@@ -84,6 +84,8 @@ class MomentDetector:
             found.append(self.long_spell(e))
         elif e.type == "period_end":
             found.append(self.period_end(e))
+        elif e.type == "period_start":
+            found.append(self.kickoff(e))
         found += self.trends(e)
         return found
 
@@ -159,6 +161,22 @@ class MomentDetector:
                  "players_involved": len({x.player_id for x in passes})}
         headline = f"{facts['team']} keep the ball: {len(passes)} passes in a row"
         return self.moment(e, "long_spell", 1, headline, facts, [x.id for x in passes])
+
+    def kickoff(self, e: Event) -> Moment:
+        """The start of each half, so the commentator opens the match instead of starting at 7'."""
+        info = self.state.info
+        first = e.period == 1
+        facts = {
+            "half": "first" if first else "second",
+            "home": info.home.name,
+            "away": info.away.name,
+            "venue": info.venue,
+            "home_formation": info.home.formation,
+            "away_formation": info.away.formation,
+        }
+        headline = (f"We're under way at {info.venue}: {info.home.name} v {info.away.name}" if first
+                    else f"The second half is under way at {info.venue}")
+        return self.moment(e, "kickoff", 2, headline, facts, [e.id], team=None)
 
     def period_end(self, e: Event) -> Moment:
         snap = self.state.snapshot()
