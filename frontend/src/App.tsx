@@ -197,8 +197,10 @@ function App() {
         <LanguagePicker profile={profile} onChange={changeProfile} />
         <DetailPicker detail={detail} onChange={setDetail} />
         <span className="controls-gap" />
-        <SoundSwitch sound={soundOn} onSound={setSound} speaking={speaker.status === 'speaking'} />
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <div className="controls-end">
+          <SoundSwitch sound={soundOn} onSound={setSound} speaking={speaker.status === 'speaking'} />
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
       </div>
 
       <div className="layout">

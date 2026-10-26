@@ -72,7 +72,7 @@ export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, repla
 
       {overlay && (
         <div key={overlay.moment.id} className={`lower-third ${overlay.moment.kind}`}>
-          <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--surface-3)' }}>
+          <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--accent)' }}>
             {overlayTeam?.short_name ?? minuteLabel(overlay.moment.t)}
           </span>
           <div className="body">
