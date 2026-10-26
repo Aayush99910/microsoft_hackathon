@@ -1,0 +1,9 @@
+# Keep secrets, local environments and build output out of the image
+**/.env
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+.git
+.claude
+docs
