@@ -27,6 +27,7 @@ PRESSING_PER_MIN = 2.5  # one team's pressures per minute over the last 5 minute
 CHAOS_TURNOVERS_PER_MIN = 3.0  # ball changing hands this often = chaos
 MIN_WINDOW_SECONDS = 3 * 60  # need this much recent play before judging a trend
 COOLDOWN_SECONDS = 8 * 60  # don't repeat the same trend moment more often than this
+OPENING_READ_SECONDS = 2 * 60  # an early read of the game, so the opening minutes are never silent
 
 
 def shot_location(e: Event) -> dict:
@@ -49,7 +50,7 @@ class Moment:
     id: int
     t: float
     period: int
-    kind: str  # kickoff, goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
+    kind: str  # kickoff, opening, first_shot, goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
     importance: int  # 1 = minor, 2 = notable, 3 = major
     headline: str
     team: str | None = None
@@ -66,6 +67,8 @@ class MomentDetector:
         self.spell_announced = False
         self.last_trend: dict[str, float] = {}  # moment kind -> match time it last fired
         self.momentum_side: str | None = None  # side currently on top, once a swing has been called
+        self.opening_done = False
+        self.first_shot_done = False
 
     def check(self, e: Event) -> list[Moment]:
         if e.type == "possession_change":
@@ -86,6 +89,9 @@ class MomentDetector:
             found.append(self.period_end(e))
         elif e.type == "period_start":
             found.append(self.kickoff(e))
+        if not self.opening_done and e.period == 1 and e.t >= OPENING_READ_SECONDS and e.team:
+            self.opening_done = True
+            found.append(self.opening(e))
         found += self.trends(e)
         return found
 
@@ -138,12 +144,17 @@ class MomentDetector:
             "body_part": s.body_part.replace("_", " "),
             **shot_location(e),
         }
+        first = not self.first_shot_done
+        self.first_shot_done = True
         if s.xg >= BIG_CHANCE_XG:
             return [self.moment(e, "big_chance", 2,
                                 f"Big chance for {facts['shooter']} (xG {s.xg:.2f}), {facts['outcome']}", facts,
                                 self.build_up())]
         if kmh >= ROCKET_KMH:
             return [self.moment(e, "rocket", 1, f"{facts['shooter']} hits it at {kmh} km/h", facts, self.build_up())]
+        if first:
+            return [self.moment(e, "first_shot", 1, f"First effort of the match: {facts['shooter']}, {facts['outcome']}",
+                                facts, self.build_up())]
         return []
 
     def card(self, e: Event) -> Moment:
@@ -177,6 +188,28 @@ class MomentDetector:
         headline = (f"We're under way at {info.venue}: {info.home.name} v {info.away.name}" if first
                     else f"The second half is under way at {info.venue}")
         return self.moment(e, "kickoff", 2, headline, facts, [e.id], team=None)
+
+    def opening(self, e: Event) -> Moment:
+        """Two minutes in: who has settled quicker, from possession and passing so far."""
+        s = self.state
+        pct = s.possession_pct()
+        side = "home" if pct["home"] >= pct["away"] else "away"
+        other = "away" if side == "home" else "home"
+        teams = s.teams
+
+        def accuracy(t):
+            return round(100 * t.passes_completed / t.passes) if t.passes else None
+
+        facts = {
+            "team_on_ball_more": self.team_name(side),
+            "other_team": self.team_name(other),
+            "possession_pct": {self.team_name(k): v for k, v in pct.items()},
+            "passes": {self.team_name(k): teams[k].passes for k in ("home", "away")},
+            "pass_accuracy_pct": {self.team_name(k): accuracy(teams[k]) for k in ("home", "away")},
+            "shots_so_far": teams["home"].shots + teams["away"].shots,
+        }
+        headline = f"{facts['team_on_ball_more']} settle quicker: {pct[side]}% of the ball so far"
+        return self.moment(e, "opening", 1, headline, facts, self.recent_ids(("pass",), side), team=side)
 
     def period_end(self, e: Event) -> Moment:
         snap = self.state.snapshot()

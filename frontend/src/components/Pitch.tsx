@@ -1,91 +1,84 @@
-import { MOMENT_LABEL, minuteLabel } from '../format'
-import { Loading } from './Loading'
-import type { Commentary, MatchEvent, MatchInfo, Moment } from '../types'
+import type { MatchEvent, MatchInfo } from '../types'
 
 type End = { end_x: number; end_y: number }
 
-const TRAIL = 6 // on-ball events drawn behind the ball
 const ON_BALL = new Set(['pass', 'carry', 'shot'])
+
+// Same 4-3-3 shape the simulator uses, in each team's own attacking frame (attacking toward x = 105)
+const FORMATION_433: Record<string, [number, number]> = {
+  GK: [5, 34],
+  RB: [30, 8],
+  RCB: [22, 24],
+  LCB: [22, 44],
+  LB: [30, 60],
+  RCM: [45, 22],
+  CM: [40, 34],
+  LCM: [45, 46],
+  RW: [72, 10],
+  ST: [78, 34],
+  LW: [72, 58],
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 function endOf(e: MatchEvent): [number, number] {
   const details = (e.pass ?? e.carry ?? e.shot) as End | undefined
   return details ? [details.end_x, details.end_y] : [e.x, e.y]
 }
 
-type Props = {
-  info: MatchInfo
-  events: MatchEvent[] // newest first
-  overlay: { moment: Moment; line?: Commentary } | null
-  trail?: number // how many on-ball events to draw behind the ball
-  replay?: { label: string; onExit: () => void } // shown while a key moment is being replayed
-  waiting?: string // shown over the pitch before play starts
-  brief?: boolean // show the short version of the commentary in the lower third
+/**
+ * Where each player stands: the team shape slides up and down with the ball and the team in
+ * possession pushes a little higher (as in the simulator).
+ */
+function playerSpots(info: MatchInfo, ballX: number, inPossession: 'home' | 'away') {
+  return (['home', 'away'] as const).flatMap((side) => {
+    const ownBallX = side === 'home' ? ballX : 105 - ballX
+    const shift = (ownBallX - 52.5) * 0.5
+    const push = side === inPossession ? 6 : 0
+    return info[side].players.map((p) => {
+      const [fx, fy] = FORMATION_433[p.position] ?? [52.5, 34]
+      const x = p.position === 'GK' ? fx + Math.max(0, shift) * 0.2 : clamp(fx + shift + push, 3, 102)
+      // the away team attacks the other way
+      const [px, py] = side === 'home' ? [x, fy] : [105 - x, 68 - fy]
+      return { id: p.id, number: p.number, side, x: px, y: py }
+    })
+  })
 }
 
-/**
- * Top-down pitch (105 x 68 m, home attacks left to right): the ball, the last few
- * passes and runs, and a TV lower-third graphic for big moments.
- */
-export function Pitch({ info, events, overlay, trail: trailLength = TRAIL, replay, waiting, brief }: Props) {
-  const trail = events.filter((e) => ON_BALL.has(e.type)).slice(0, trailLength).reverse()
-  const [ballX, ballY] = trail.length ? endOf(trail[trail.length - 1]) : [52.5, 34]
-  const color = (e: MatchEvent) => (e.team === 'away' ? info.away.color : info.home.color)
-  const overlayTeam = overlay?.moment.team ? info[overlay.moment.team] : null
+/** Top-down live pitch (105 x 68 m, home attacks left to right): all 22 players and the ball. */
+export function Pitch({ info, events }: { info: MatchInfo; events: MatchEvent[] /* newest first */ }) {
+  const last = events.find((e) => ON_BALL.has(e.type))
+  const [ballX, ballY] = last ? endOf(last) : [52.5, 34]
+  const inPossession = (events.find((e) => e.team)?.team ?? 'home') as 'home' | 'away'
+  const players = playerSpots(info, ballX, inPossession)
 
   return (
-    <div className={`pitch-wrap ${replay ? 'replaying' : ''}`}>
+    <div className="pitch-wrap">
       <svg className="pitch" viewBox="-3 -3 111 74" role="img" aria-label="Live pitch view">
-        {/* y is flipped so that y=0 (bottom touchline) is at the bottom of the screen */}
-        <g transform="translate(0 68) scale(1 -1)">
-          <PitchLines />
-          {trail.map((e, i) => {
-            const [ex, ey] = endOf(e)
-            const failed = e.type === 'pass' && (e.pass as { outcome: string }).outcome !== 'complete'
-            return (
-              <g key={e.id} opacity={0.2 + (0.8 * (i + 1)) / trail.length}>
-                <line
-                  x1={e.x}
-                  y1={e.y}
-                  x2={ex}
-                  y2={ey}
-                  stroke={e.type === 'shot' ? '#ffffff' : color(e)}
-                  strokeWidth={e.type === 'shot' ? 0.6 : 0.4}
-                  strokeDasharray={e.type === 'carry' ? '0.7 0.7' : failed ? '1.6 0.9' : undefined}
-                  strokeLinecap="round"
-                />
-                <circle cx={e.x} cy={e.y} r={1.15} fill={color(e)} stroke="#fff" strokeWidth={0.3} />
-              </g>
-            )
-          })}
-          <circle className="ball" cx={ballX} cy={ballY} r={0.85} fill="#fff" />
-        </g>
+        <PitchLines />
+        {/* y is measured from the top here, so y=0 (bottom touchline in match data) is drawn at the bottom */}
+        {players.map((p) => {
+          const active = p.id === last?.player_id
+          const [x, y] = active ? [ballX, ballY] : [p.x, p.y]
+          return (
+            <g key={p.id} className="player" style={{ transform: `translate(${x}px, ${68 - y}px)` }}>
+              <circle r={active ? 1.9 : 1.55} fill={info[p.side].color} className={active ? 'on-ball' : undefined} />
+              <text className="shirt-no" dy="0.55">
+                {p.number}
+              </text>
+            </g>
+          )
+        })}
+        <circle className="ball" cx={ballX} cy={68 - ballY} r={0.8} fill="#fff" />
       </svg>
-
-      {waiting && <Loading text={waiting} className="pitch-loading" />}
-
-      {replay && (
-        <div className="replay-badge">
-          <span>{replay.label}</span>
-          <button onClick={replay.onExit}>Back to live</button>
-        </div>
-      )}
-
-      {overlay && (
-        <div key={overlay.moment.id} className={`lower-third ${overlay.moment.kind}`}>
-          <span className="tag" style={{ background: overlayTeam?.color ?? 'var(--accent)' }}>
-            {overlayTeam?.short_name ?? minuteLabel(overlay.moment.t)}
-          </span>
-          <div className="body">
-            <div className="kicker">
-              {replay ? 'Replay · ' : ''}
-              {MOMENT_LABEL[overlay.moment.kind] ?? overlay.moment.kind} · {minuteLabel(overlay.moment.t)}
-            </div>
-            <div className="line">
-              {(brief ? overlay.line?.short : undefined) ?? overlay.line?.text ?? overlay.moment.headline}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="pitch-legend">
+        <span>
+          <i style={{ background: info.home.color }} /> {info.home.short_name} → attacking right
+        </span>
+        <span>
+          <i style={{ background: info.away.color }} /> {info.away.short_name}
+        </span>
+      </div>
     </div>
   )
 }

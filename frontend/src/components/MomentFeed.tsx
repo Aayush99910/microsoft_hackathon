@@ -6,15 +6,11 @@ type Props = {
   info: MatchInfo
   moments: Moment[]
   lines: Record<number, Commentary>
-  onReplay: (moment: Moment) => void
   onCompare: (moment: Moment) => void
   waiting: string // shown while there are no moments yet
   switching: string | null // shown while the latest moments are re-told for a new mode or language
   brief: boolean // one short line per moment, no explanation or agent details
 }
-
-// Moments built from a passage of play that is worth watching again
-const REPLAYABLE = new Set(['goal', 'big_chance', 'rocket', 'card', 'long_spell'])
 
 const AGENT_NAME: Record<string, string> = {
   narrator: 'Narrator',
@@ -24,7 +20,7 @@ const AGENT_NAME: Record<string, string> = {
 }
 
 /** Live commentary timeline: key moments, newest first, written by the agents. */
-export function MomentFeed({ info, moments, lines, onReplay, onCompare, waiting, switching, brief }: Props) {
+export function MomentFeed({ info, moments, lines, onCompare, waiting, switching, brief }: Props) {
   return (
     <div className="feed">
         {/* While switching mode or language, show only the loader; the cards come back all at once, re-told */}
@@ -53,13 +49,8 @@ export function MomentFeed({ info, moments, lines, onReplay, onCompare, waiting,
                     {team && <span className="label">{team.short_name}</span>}
                     <span className="entry-actions">
                       {line && (
-                        <button className="replay-btn" onClick={() => onCompare(m)} aria-label={`Compare modes for ${m.headline}`}>
-                          Compare
-                        </button>
-                      )}
-                      {REPLAYABLE.has(m.kind) && (
-                        <button className="replay-btn" onClick={() => onReplay(m)} aria-label={`Replay ${m.headline}`}>
-                          ▶ Replay
+                        <button className="replay-btn" onClick={() => onCompare(m)} aria-label={`Other takes on ${m.headline}`}>
+                          Other takes
                         </button>
                       )}
                     </span>

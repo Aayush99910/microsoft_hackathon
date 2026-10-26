@@ -32,7 +32,22 @@ type TeamStats = {
   red_cards: number
 }
 
+export type PlayerRating = {
+  id: number
+  rating: number
+  goals: number
+  assists: number
+  shots: number
+  passes: number
+  pass_accuracy: number | null
+  tackles_won: number
+  stops: number
+  yellow_cards: number
+  red_cards: number
+}
+
 export type Stats = {
+  ratings?: PlayerRating[]
   t: number
   period: number
   score: Record<Side, number>

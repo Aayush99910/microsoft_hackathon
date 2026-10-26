@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { MatchInfo, Profile, Team } from '../types'
-import { type Detail, DetailCards, LanguagePicker, ModeCards, OptionCards } from './ProfilePicker'
-
-const SPEEDS = [
-  { id: '10', label: 'Relaxed', hint: 'Whole match in about 9 min' },
-  { id: '30', label: 'Standard', hint: 'Whole match in about 3 min' },
-  { id: '120', label: 'Highlights', hint: 'Under a minute' },
-]
-
-const SOUNDS = [
-  { id: 'on', label: 'Sound', hint: 'Commentator voice and crowd' },
-  { id: 'off', label: 'No sound', hint: 'Read the key moments only' },
-]
+import { type Detail, LANGUAGES, MODES } from './ProfilePicker'
+import { SPEEDS, SettingsSheet } from './SettingsSheet'
+import type { Theme } from './ThemeToggle'
 
 type Props = {
   seed: number
@@ -21,27 +12,19 @@ type Props = {
   onSound: (on: boolean) => void
   detail: Detail
   onDetail: (detail: Detail) => void
+  theme: Theme
+  onTheme: (theme: Theme) => void
   onSeed: (seed: number) => void
   onSpeed: (speed: number) => void
   onProfile: (profile: Profile) => void
   onKickOff: () => void
 }
 
-/** Pre-match screen: the fixture, how to tell the story, how fast to play, and kick-off. */
-export function Setup({
-  seed,
-  speed,
-  profile,
-  sound,
-  onSound,
-  detail,
-  onDetail,
-  onSeed,
-  onSpeed,
-  onProfile,
-  onKickOff,
-}: Props) {
+/** Pre-match screen on one screen: the fixture, a summary of how it will be told, and kick-off. */
+export function Setup(props: Props) {
+  const { seed, speed, profile, sound, detail, onSeed, onKickOff } = props
   const [info, setInfo] = useState<MatchInfo | null>(null)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     fetch(`/api/match/info?seed=${seed}`)
@@ -50,75 +33,73 @@ export function Setup({
       .catch(() => setInfo(null))
   }, [seed])
 
+  const mode = MODES.find((m) => m.id === profile.mode)
+  const choices = [
+    { label: 'Style', value: mode?.label, hint: mode?.hint },
+    { label: 'Language', value: LANGUAGES.find((l) => l.id === profile.language)?.label },
+    { label: 'Detail', value: detail === 'brief' ? 'Brief' : 'Detailed' },
+    { label: 'Sound', value: sound ? 'Voice and crowd' : 'No sound' },
+    { label: 'Pace', value: SPEEDS.find((s) => Number(s.id) === speed)?.label },
+  ]
+
   return (
     <section className="setup">
-      <span className="label">Matchday · {info?.venue ?? '…'}</span>
-      <div className="fixture">
-        {info ? <Club team={info.home} side="home" /> : <div className="club placeholder" />}
-        <span className="vs">V</span>
-        {info ? <Club team={info.away} side="away" /> : <div className="club placeholder" />}
+      <div className="fixture-card">
+        <div className="fixture-top">
+          <span className="label">Matchday · {info?.venue ?? '…'}</span>
+          <button className="link" onClick={() => onSeed(Math.floor(Math.random() * 1000))}>
+            New fixture
+          </button>
+        </div>
+        <div className="fixture">
+          {info ? <Club team={info.home} side="home" /> : <div className="club placeholder" />}
+          <span className="vs">v</span>
+          {info ? <Club team={info.away} side="away" /> : <div className="club placeholder" />}
+        </div>
       </div>
 
-      <div className="options">
-        <div className="option">
-          <div>
-            <span className="label">Fixture</span>
-          </div>
-          <div className="match-row">
-            <span className="match-no num">No. {seed}</span>
-            <button className="link" onClick={() => onSeed(Math.floor(Math.random() * 1000))}>
-              Generate another
-            </button>
-          </div>
+      <div className="your-match">
+        <div className="your-match-head">
+          <span className="label">Your match</span>
+          <button className="change-btn" onClick={() => setEditing(true)}>
+            Change
+          </button>
         </div>
-
-        <div className="option">
-          <div>
-            <span className="label">Commentary style</span>
-            <p className="muted small">How the AI commentator tells the match</p>
-          </div>
-          <ModeCards profile={profile} onChange={onProfile} />
-        </div>
-
-        <div className="option">
-          <div>
-            <span className="label">Language</span>
-          </div>
-          <LanguagePicker profile={profile} onChange={onProfile} />
-        </div>
-
-        <div className="option">
-          <div>
-            <span className="label">Detail</span>
-            <p className="muted small">How much to show for each key moment</p>
-          </div>
-          <DetailCards detail={detail} onChange={onDetail} />
-        </div>
-
-        <div className="option">
-          <div>
-            <span className="label">Sound</span>
-            <p className="muted small">You can change it any time</p>
-          </div>
-          <OptionCards label="Sound" value={sound ? 'on' : 'off'} options={SOUNDS} onChange={(v) => onSound(v === 'on')} />
-        </div>
-
-        <div className="option">
-          <div>
-            <span className="label">Pace</span>
-          </div>
-          <OptionCards label="Playback speed" value={String(speed)} options={SPEEDS} onChange={(v) => onSpeed(Number(v))} />
-        </div>
+        <dl>
+          {choices.map((c) => (
+            <div key={c.label}>
+              <dt>{c.label}</dt>
+              <dd>
+                {c.value}
+                {c.hint && <span className="muted"> · {c.hint}</span>}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <div className="kickoff-bar">
-        <p className="muted small" style={{ margin: 0, maxWidth: 380 }}>
-          Every fixture is generated from scratch and narrated live by AI agents. Same number, same match.
-        </p>
+        <p className="muted small">Every fixture is generated from scratch and narrated live by AI agents.</p>
         <button className="btn btn-primary" onClick={onKickOff} disabled={!info}>
           Kick off
         </button>
       </div>
+
+      {editing && (
+        <SettingsSheet
+          profile={profile}
+          onProfile={props.onProfile}
+          detail={detail}
+          onDetail={props.onDetail}
+          sound={sound}
+          onSound={props.onSound}
+          theme={props.theme}
+          onTheme={props.onTheme}
+          speed={speed}
+          onSpeed={props.onSpeed}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </section>
   )
 }

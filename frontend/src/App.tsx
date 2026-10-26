@@ -6,25 +6,26 @@ import { Lineups } from './components/Lineups'
 import { SoundSwitch } from './components/Sound'
 import { ThemeToggle, useTheme } from './components/ThemeToggle'
 import { type Detail, DetailPicker, LANGUAGES, LanguagePicker, MODES, ModePicker } from './components/ProfilePicker'
+import { Ratings } from './components/Ratings'
 import { Scoreboard } from './components/Scoreboard'
 import { SettingsSheet } from './components/SettingsSheet'
 import { Setup } from './components/Setup'
 import { StatsPanel } from './components/StatsPanel'
 import type { Commentary, Moment, Profile } from './types'
-import { minuteLabel } from './format'
 import { profileLabel, retell } from './retell'
 import { useMatchStream } from './useMatchStream'
-import { useReplay } from './useReplay'
 import { useCrowd } from './useCrowd'
 import { type Intensity, useSpeaker } from './useSpeaker'
 
-const OVERLAY_SECONDS = 6 // how long a big-moment graphic stays on the pitch
 const TABS = [
   { id: 'moments', label: 'Moments' },
   { id: 'stats', label: 'Stats' },
-  { id: 'lineups', label: 'Line-ups' },
+  { id: 'ratings', label: 'Ratings' },
+  { id: 'lineups', label: 'Teams' },
+  { id: 'pitch', label: 'Pitch' },
 ] as const
 type TabId = (typeof TABS)[number]['id']
+const WIDE = '(min-width: 901px)' // side by side: key moments in their own column, the other tabs beside them
 
 const RETELL_RECENT = 5 // cards re-told straight away when the viewer switches mode or language
 const SWITCH_MIN_MS = 2_000 // the switching bar shows at least this long, so the change is clearly visible
@@ -38,8 +39,6 @@ function App() {
   const { theme, setTheme, toggle: toggleTheme } = useTheme()
   const brief = detail === 'brief'
   const match = useMatchStream()
-  const overlayMoment = useOverlay(match.moments)
-  const { replay, play, stop: stopReplay } = useReplay()
   const speaker = useSpeaker()
   const [comparing, setComparing] = useState<Moment | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -47,10 +46,13 @@ function App() {
   const switchToken = useRef<symbol | null>(null)
   const lastMomentAtSwitch = useRef(Number.MAX_SAFE_INTEGER) // no catch-up re-telling before the first switch
   const [tab, setTab] = useState<TabId>('moments')
+  const wide = useMediaQuery(WIDE)
+  const sideTabs = wide ? TABS.filter((t) => t.id !== 'moments') : TABS
+  const shownTab: TabId = wide && tab === 'moments' ? 'stats' : tab
   const [seenMoments, setSeenMoments] = useState(0) // moments already seen, for the badge on the Moments tab
   useEffect(() => {
-    if (tab === 'moments') setSeenMoments(match.moments.length)
-  }, [tab, match.moments.length])
+    if (tab === 'moments' || wide) setSeenMoments(match.moments.length)
+  }, [tab, wide, match.moments.length])
 
   const crowd = useCrowd()
   const soundOn = speaker.enabled
@@ -174,6 +176,8 @@ function App() {
           onSound={setSound}
           detail={detail}
           onDetail={setDetail}
+          theme={theme}
+          onTheme={setTheme}
           onKickOff={() => {
             match.setHolding(soundOn)
             if (soundOn) {
@@ -189,6 +193,17 @@ function App() {
 
   const { info } = match
   const unseen = match.moments.length - seenMoments
+  const feed = (
+    <MomentFeed
+      info={info}
+      moments={match.moments}
+      lines={match.lines}
+      onCompare={setComparing}
+      waiting={match.events.length === 0 ? 'Getting the match ready…' : 'Waiting for the first key moment…'}
+      switching={switching}
+      brief={brief}
+    />
+  )
   return (
     <main className="page match">
       <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} onSettings={() => setSettingsOpen(true)} />
@@ -212,77 +227,46 @@ function App() {
         </div>
       </div>
 
-      <div className="layout">
-        <div className="stage">
-          {replay ? (
-            <Pitch
-              info={info}
-              events={replay.events.slice(0, replay.step + 1).reverse()}
-              trail={12}
-              overlay={{ moment: replay.moment, line: match.lines[replay.moment.id] }}
-              replay={{
-                label: `Replay ${replay.step + 1}/${replay.events.length} · ${minuteLabel(replay.moment.t)}`,
-                onExit: stopReplay,
-              }}
-            />
-          ) : (
-            <Pitch
-              info={info}
-              events={match.events}
-              overlay={overlayMoment ? { moment: overlayMoment, line: match.lines[overlayMoment.id] } : null}
-              waiting={match.events.length === 0 ? 'Getting the match ready…' : undefined}
-              brief={brief}
-            />
-          )}
-          {match.status === 'ended' && (
-            <div className="end-actions">
-              <button className="btn btn-primary" onClick={() => match.start(seed, speed, profile)}>
-                Watch again
-              </button>
-              <button className="btn btn-line" onClick={match.stop}>
-                New fixture
-              </button>
-            </div>
-          )}
+      {match.status === 'ended' && (
+        <div className="end-actions">
+          <button className="btn btn-primary" onClick={() => match.start(seed, speed, profile)}>
+            Watch again
+          </button>
+          <button className="btn btn-line" onClick={match.stop}>
+            New fixture
+          </button>
         </div>
+      )}
+
+      <div className="layout">
+        {wide && (
+          <section className="side-panel moments-panel">
+            <h2 className="panel-title">Key moments</h2>
+            <div className="tab-body">{feed}</div>
+          </section>
+        )}
 
         <section className="side-panel">
           <div className="tab-bar" role="tablist">
-            {TABS.map((t) => (
+            {sideTabs.map((t) => (
               <button
                 key={t.id}
                 role="tab"
-                aria-selected={tab === t.id}
-                className={tab === t.id ? 'active' : ''}
+                aria-selected={shownTab === t.id}
+                className={shownTab === t.id ? 'active' : ''}
                 onClick={() => setTab(t.id)}
               >
                 {t.label}
-                {t.id === 'moments' && tab !== 'moments' && unseen > 0 && <span className="badge">{unseen}</span>}
+                {t.id === 'moments' && shownTab !== 'moments' && unseen > 0 && <span className="badge">{unseen}</span>}
               </button>
             ))}
           </div>
           <div className="tab-body" role="tabpanel">
-            {tab === 'moments' && (
-              <MomentFeed
-                info={info}
-                moments={match.moments}
-                lines={match.lines}
-                onCompare={setComparing}
-                waiting={match.events.length === 0 ? 'Getting the match ready…' : 'Waiting for the first key moment…'}
-                switching={switching}
-                brief={brief}
-                onReplay={(m) => {
-                  play(m, match.eventsFor(m.evidence))
-                  const line = match.lines[m.id]
-                  speaker.say(line ? spokenText(line, brief) : m.headline, profile.language, intensityOf(m), profile.mode, {
-                    priority: 9,
-                    interrupt: true,
-                  })
-                }}
-              />
-            )}
-            {tab === 'stats' && <StatsPanel info={info} stats={match.stats} />}
-            {tab === 'lineups' && <Lineups info={info} />}
+            {shownTab === 'moments' && feed}
+            {shownTab === 'stats' && <StatsPanel info={info} stats={match.stats} />}
+            {shownTab === 'ratings' && <Ratings info={info} stats={match.stats} />}
+            {shownTab === 'lineups' && <Lineups info={info} />}
+            {shownTab === 'pitch' && <Pitch info={info} events={match.events} />}
           </div>
         </section>
       </div>
@@ -361,23 +345,20 @@ function spokenText(line: Commentary, brief: boolean): string {
 /** How excited the commentator sounds for each kind of moment (a card with importance 3 is a red). */
 function intensityOf(m: { kind: string; importance: number }): Intensity {
   if (m.kind === 'goal' || m.kind === 'milestone' || (m.kind === 'card' && m.importance === 3)) return 'excited'
-  if (m.kind === 'long_spell' || m.kind === 'chaos') return 'calm'
+  if (m.kind === 'long_spell' || m.kind === 'chaos' || m.kind === 'opening') return 'calm'
   return 'lively'
 }
 
-/** The newest notable moment (importance 2+), shown for a few seconds. */
-function useOverlay(moments: Moment[]): Moment | null {
-  const [shown, setShown] = useState<Moment | null>(null)
-  const newest = moments.find((m) => m.importance >= 2)
-
+/** Whether a CSS media query matches, kept up to date as the window is resized. */
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
   useEffect(() => {
-    if (!newest) return
-    setShown(newest)
-    const timer = setTimeout(() => setShown(null), OVERLAY_SECONDS * 1000)
-    return () => clearTimeout(timer)
-  }, [newest?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return shown
+    const list = window.matchMedia(query)
+    const onChange = () => setMatches(list.matches)
+    list.addEventListener('change', onChange)
+    return () => list.removeEventListener('change', onChange)
+  }, [query])
+  return matches
 }
 
 export default App

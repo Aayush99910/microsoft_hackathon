@@ -49,6 +49,11 @@ class PlayerStats:
     carry_distance: float = 0.0  # metres run with the ball
     top_shot_kmh: float = 0.0
     top_pass_kmh: float = 0.0
+    shots_on_target: int = 0
+    stops: int = 0  # shots saved or blocked
+    fouls: int = 0
+    yellow_cards: int = 0
+    red_cards: int = 0
 
 
 def attacking_x(e: Event, x: float) -> float:
@@ -112,7 +117,10 @@ class MatchState:
             team.xg += e.shot.xg
             team.shots_on_target += e.shot.outcome in ("goal", "saved")
             player.shots += 1
+            player.shots_on_target += e.shot.outcome in ("goal", "saved")
             player.xg += e.shot.xg
+            if e.shot.outcome in ("saved", "blocked") and e.shot.blocker_id in self.players:
+                self.players[e.shot.blocker_id].stops += 1
             player.top_shot_kmh = max(player.top_shot_kmh, shot_speed_kmh(e))
         elif e.type == "goal":
             team.goals += 1
@@ -127,11 +135,14 @@ class MatchState:
             player.tackles_won += 1
         elif e.type == "foul":
             team.fouls += 1
+            player.fouls += 1
         elif e.type == "card":
             if e.card.color == "yellow":
                 team.yellow_cards += 1
+                player.yellow_cards += 1
             else:
                 team.red_cards += 1
+                player.red_cards += 1
 
     # --- derived numbers -------------------------------------------------------
 
@@ -190,7 +201,36 @@ class MatchState:
             "recent": self.recent_window(),
             "in_possession": self.in_possession,
             "current_spell_passes": self.possession_passes,
+            "ratings": self.ratings(),
         }
+
+    def ratings(self) -> list[dict]:
+        """Match ratings out of 10, from plain rules (no AI), so every number can be explained.
+
+        Everyone starts on 6.0. Goals, assists, shots on target, tackles, stops, pressing, completed
+        passes and ball-carrying add to it; misplaced passes, fouls and cards take away.
+        """
+        out = []
+        for pid, p in self.players.items():
+            failed = p.passes - p.passes_completed
+            score = (6.0 + 1.3 * p.goals + 0.8 * p.assists + 0.15 * p.shots_on_target + 0.5 * p.xg
+                     + 0.15 * p.tackles_won + 0.3 * p.stops + min(0.4, 0.03 * p.pressures)
+                     + min(0.6, 0.015 * p.passes_completed) - 0.06 * failed + min(0.3, p.carry_distance / 300)
+                     - 0.1 * p.fouls - 0.4 * p.yellow_cards - 1.5 * p.red_cards)
+            out.append({
+                "id": pid,
+                "rating": round(min(10.0, max(3.0, score)), 1),
+                "goals": p.goals,
+                "assists": p.assists,
+                "shots": p.shots,
+                "passes": p.passes,
+                "pass_accuracy": round(100 * p.passes_completed / p.passes) if p.passes else None,
+                "tackles_won": p.tackles_won,
+                "stops": p.stops,
+                "yellow_cards": p.yellow_cards,
+                "red_cards": p.red_cards,
+            })
+        return out
 
     def player_line(self, player_id: int) -> dict:
         """Compact stats for one player, for player-focus mode and agent context."""

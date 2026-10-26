@@ -3,7 +3,13 @@ import type { Profile } from '../types'
 import { type Detail, DetailCards, LanguagePicker, ModeCards, OptionCards } from './ProfilePicker'
 import { type Theme, ThemePicker } from './ThemeToggle'
 
-const SOUNDS = [
+export const SPEEDS = [
+  { id: '10', label: 'Relaxed', hint: 'Whole match in about 9 min' },
+  { id: '30', label: 'Standard', hint: 'Whole match in about 3 min' },
+  { id: '120', label: 'Highlights', hint: 'Under a minute' },
+]
+
+export const SOUNDS = [
   { id: 'on', label: 'Sound', hint: 'Commentator voice and crowd' },
   { id: 'off', label: 'No sound', hint: 'Read the key moments only' },
 ]
@@ -17,6 +23,8 @@ type Props = {
   onSound: (on: boolean) => void
   theme: Theme
   onTheme: (theme: Theme) => void
+  speed?: number // before kick-off only: how fast to play the match
+  onSpeed?: (speed: number) => void
   onClose: () => void
 }
 
@@ -24,11 +32,13 @@ type Props = {
  * Phone match settings: a panel that slides up from the bottom. Choices are a draft until Save,
  * so a change of mode and language together is re-told once.
  */
-export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onSound, theme, onTheme, onClose }: Props) {
+export function SettingsSheet(props: Props) {
+  const { profile, onProfile, detail, onDetail, sound, onSound, theme, onTheme, speed, onSpeed, onClose } = props
   const [draftProfile, setDraftProfile] = useState(profile)
   const [draftDetail, setDraftDetail] = useState(detail)
   const [draftSound, setDraftSound] = useState(sound)
   const [draftTheme, setDraftTheme] = useState(theme)
+  const [draftSpeed, setDraftSpeed] = useState(speed)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -37,12 +47,14 @@ export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onS
   }, [onClose])
 
   const profileChanged = draftProfile.mode !== profile.mode || draftProfile.language !== profile.language
-  const changed = profileChanged || draftDetail !== detail || draftSound !== sound || draftTheme !== theme
+  const changed =
+    profileChanged || draftDetail !== detail || draftSound !== sound || draftTheme !== theme || draftSpeed !== speed
 
   function save() {
     if (draftTheme !== theme) onTheme(draftTheme)
     if (draftDetail !== detail) onDetail(draftDetail)
     if (draftSound !== sound) onSound(draftSound)
+    if (draftSpeed !== undefined && draftSpeed !== speed) onSpeed?.(draftSpeed)
     if (profileChanged) onProfile(draftProfile)
     onClose()
   }
@@ -73,6 +85,17 @@ export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onS
           <span className="label">Sound</span>
           <OptionCards label="Sound" value={draftSound ? 'on' : 'off'} options={SOUNDS} onChange={(v) => setDraftSound(v === 'on')} />
         </div>
+        {draftSpeed !== undefined && (
+          <div className="sheet-row">
+            <span className="label">Pace</span>
+            <OptionCards
+              label="Playback speed"
+              value={String(draftSpeed)}
+              options={SPEEDS}
+              onChange={(v) => setDraftSpeed(Number(v))}
+            />
+          </div>
+        )}
         <div className="sheet-row">
           <span className="label">Theme</span>
           <ThemePicker theme={draftTheme} onChange={setDraftTheme} />

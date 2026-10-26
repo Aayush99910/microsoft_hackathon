@@ -32,13 +32,13 @@ export function Compare({ moment, line, language, onClose }: Props) {
         className="compare"
         role="dialog"
         aria-modal="true"
-        aria-label="Same moment in every viewing mode"
+        aria-label="Same moment, five takes"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="compare-head">
           <div>
             <span className="label">
-              Same moment, five fans · {MOMENT_LABEL[moment.kind] ?? moment.kind} · {minuteLabel(moment.t)}
+              Same moment, five takes · {MOMENT_LABEL[moment.kind] ?? moment.kind} · {minuteLabel(moment.t)}
             </span>
             <p className="compare-headline">{moment.headline}</p>
           </div>
