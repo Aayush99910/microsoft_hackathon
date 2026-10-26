@@ -192,6 +192,13 @@ function App() {
   return (
     <main className="page match">
       <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} onSettings={() => setSettingsOpen(true)} />
+      <button className="settings-strip" onClick={() => setSettingsOpen(true)}>
+        <span>
+          {MODES.find((m) => m.id === profile.mode)?.label} · {LANGUAGES.find((l) => l.id === profile.language)?.label} ·{' '}
+          {brief ? 'Brief' : 'Detailed'} · {soundOn ? 'Sound on' : 'No sound'}
+        </span>
+        <span className="change">Change</span>
+      </button>
 
       <div className="controls-bar">
         <span className="label">Commentary</span>

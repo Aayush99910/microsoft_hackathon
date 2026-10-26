@@ -1,10 +1,10 @@
 import type { Profile } from '../types'
 
 export const MODES = [
-  { id: 'casual', label: 'Casual', hint: 'The story, no jargon' },
-  { id: 'analyst', label: 'Analyst', hint: 'Numbers first' },
-  { id: 'tactics', label: 'Tactics', hint: 'Shape, space, pressing' },
-  { id: 'kids', label: 'Kids', hint: 'Simple and fun' },
+  { id: 'casual', label: 'Casual', hint: 'The story of the game, no jargon' },
+  { id: 'analyst', label: 'Analyst', hint: 'Stats first: xG, shots, possession' },
+  { id: 'tactics', label: 'Tactics', hint: 'Shape, pressing and space, like a coach' },
+  { id: 'kids', label: 'Kids', hint: 'Simple words, lots of fun' },
   { id: 'accessible', label: 'Described', hint: 'For blind and low-vision fans: who, where, what' },
 ]
 
@@ -67,4 +67,48 @@ export function DetailPicker({ detail, onChange }: { detail: Detail; onChange: (
       </button>
     </div>
   )
+}
+
+/** Choice cards: each option says what you get, so nothing needs explaining (setup page, phone settings). */
+export function OptionCards<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: { id: T; label: string; hint: string }[]
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className="option-cards" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.id} role="radio" aria-checked={value === o.id} onClick={() => onChange(o.id)}>
+          <strong>{o.label}</strong>
+          <span>{o.hint}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function ModeCards({ profile, onChange }: Props) {
+  return (
+    <OptionCards
+      label="Commentary style"
+      value={profile.mode}
+      options={MODES}
+      onChange={(mode) => onChange({ ...profile, mode })}
+    />
+  )
+}
+
+const DETAILS: { id: Detail; label: string; hint: string }[] = [
+  { id: 'brief', label: 'Brief', hint: 'One short line per moment' },
+  { id: 'full', label: 'Detailed', hint: 'Full commentary and why it matters' },
+]
+
+export function DetailCards({ detail, onChange }: { detail: Detail; onChange: (detail: Detail) => void }) {
+  return <OptionCards label="Commentary detail" value={detail} options={DETAILS} onChange={onChange} />
 }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { Profile } from '../types'
-import { type Detail, DetailPicker, LanguagePicker, MODES, ModePicker } from './ProfilePicker'
+import { type Detail, DetailCards, LanguagePicker, ModeCards } from './ProfilePicker'
 import { SoundSwitch } from './Sound'
 import { type Theme, ThemePicker } from './ThemeToggle'
 
@@ -25,7 +25,6 @@ export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onS
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const mode = MODES.find((m) => m.id === profile.mode)
   // Changing mode or language starts the re-telling, so the sheet closes to show it
   const changeProfile = (next: Profile) => {
     onProfile(next)
@@ -43,9 +42,8 @@ export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onS
         </div>
 
         <div className="sheet-row">
-          <span className="label">Commentary</span>
-          <ModePicker profile={profile} onChange={changeProfile} />
-          <p className="muted small">{mode?.hint}</p>
+          <span className="label">Commentary style</span>
+          <ModeCards profile={profile} onChange={changeProfile} />
         </div>
         <div className="sheet-row">
           <span className="label">Language</span>
@@ -53,7 +51,7 @@ export function SettingsSheet({ profile, onProfile, detail, onDetail, sound, onS
         </div>
         <div className="sheet-row">
           <span className="label">Detail</span>
-          <DetailPicker detail={detail} onChange={onDetail} />
+          <DetailCards detail={detail} onChange={onDetail} />
         </div>
         <div className="sheet-row">
           <span className="label">Sound</span>

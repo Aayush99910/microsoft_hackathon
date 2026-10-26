@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { MatchInfo, Profile, Team } from '../types'
-import { type Detail, DetailPicker, LanguagePicker, MODES, ModePicker } from './ProfilePicker'
-import { SoundSwitch } from './Sound'
+import { type Detail, DetailCards, LanguagePicker, ModeCards, OptionCards } from './ProfilePicker'
 
 const SPEEDS = [
-  { value: 10, label: 'Relaxed', hint: '≈ 9 min' },
-  { value: 30, label: 'Standard', hint: '≈ 3 min' },
-  { value: 120, label: 'Highlights', hint: 'under 1 min' },
+  { id: '10', label: 'Relaxed', hint: 'Whole match in about 9 min' },
+  { id: '30', label: 'Standard', hint: 'Whole match in about 3 min' },
+  { id: '120', label: 'Highlights', hint: 'Under a minute' },
+]
+
+const SOUNDS = [
+  { id: 'on', label: 'Sound', hint: 'Commentator voice and crowd' },
+  { id: 'off', label: 'No sound', hint: 'Read the key moments only' },
 ]
 
 type Props = {
@@ -46,8 +50,6 @@ export function Setup({
       .catch(() => setInfo(null))
   }, [seed])
 
-  const mode = MODES.find((m) => m.id === profile.mode)
-
   return (
     <section className="setup">
       <span className="label">Matchday · {info?.venue ?? '…'}</span>
@@ -72,43 +74,40 @@ export function Setup({
 
         <div className="option">
           <div>
-            <span className="label">Commentary</span>
-            <p className="muted small">{mode?.hint}</p>
+            <span className="label">Commentary style</span>
+            <p className="muted small">How the AI commentator tells the match</p>
           </div>
-          <div className="match-row" style={{ flexWrap: 'wrap', gap: 10 }}>
-            <ModePicker profile={profile} onChange={onProfile} />
-            <LanguagePicker profile={profile} onChange={onProfile} />
+          <ModeCards profile={profile} onChange={onProfile} />
+        </div>
+
+        <div className="option">
+          <div>
+            <span className="label">Language</span>
           </div>
+          <LanguagePicker profile={profile} onChange={onProfile} />
         </div>
 
         <div className="option">
           <div>
             <span className="label">Detail</span>
-            <p className="muted small">{detail === 'brief' ? 'One short line per moment' : 'Full commentary with why it matters'}</p>
+            <p className="muted small">How much to show for each key moment</p>
           </div>
-          <DetailPicker detail={detail} onChange={onDetail} />
+          <DetailCards detail={detail} onChange={onDetail} />
         </div>
 
         <div className="option">
           <div>
             <span className="label">Sound</span>
-            <p className="muted small">Commentator voice and crowd. Change it any time.</p>
+            <p className="muted small">You can change it any time</p>
           </div>
-          <SoundSwitch sound={sound} onSound={onSound} />
+          <OptionCards label="Sound" value={sound ? 'on' : 'off'} options={SOUNDS} onChange={(v) => onSound(v === 'on')} />
         </div>
 
         <div className="option">
           <div>
             <span className="label">Pace</span>
           </div>
-          <div className="seg" role="radiogroup" aria-label="Playback speed">
-            {SPEEDS.map((s) => (
-              <button key={s.value} role="radio" aria-checked={speed === s.value} onClick={() => onSpeed(s.value)}>
-                {s.label}
-                <small>{s.hint}</small>
-              </button>
-            ))}
-          </div>
+          <OptionCards label="Playback speed" value={String(speed)} options={SPEEDS} onChange={(v) => onSpeed(Number(v))} />
         </div>
       </div>
 

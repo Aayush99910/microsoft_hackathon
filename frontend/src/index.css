@@ -370,6 +370,11 @@ button {
   justify-self: start;
 }
 
+.option > .select {
+  justify-self: start;
+  min-width: 220px;
+}
+
 .match-row {
   display: flex;
   align-items: center;
@@ -1611,5 +1616,86 @@ button {
 @media (max-width: 640px) {
   .settings-btn {
     display: grid;
+  }
+}
+
+/* --- option cards (commentary style, detail) ----------------------------------------- */
+
+.option-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.option-cards button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.option-cards button:hover {
+  border-color: var(--faint);
+}
+
+.option-cards button strong {
+  font-size: 15px;
+}
+
+.option-cards button span {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.option-cards button[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.option-cards button[aria-checked='true'] strong {
+  color: var(--accent);
+}
+
+/* what is set right now, tap to change (phones; desktop has the controls bar) */
+.settings-strip {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .option-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .option-cards button {
+    padding: 10px 12px;
+  }
+  .settings-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 0 0 10px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--muted);
+  }
+  .settings-strip .change {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 700;
   }
 }
