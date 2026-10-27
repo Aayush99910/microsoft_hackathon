@@ -1,14 +1,18 @@
 # Match Brain
 
-**Explainable, multi-agent match intelligence for football broadcasts.** Match Brain plays synthetic, football-realistic matches and turns every pass, shot, tackle and pressing spell into live commentary that explains *why* a moment matters, told the way each viewer wants it: casual fan, analyst, coach, child, or blind and low-vision fan, in English, Spanish, Hindi or Nepali.
+**Explainable, multi-agent match intelligence for football broadcasts.** Match Brain plays a whole synthetic matchday (seven football-realistic games kicking off together) and turns every pass, shot, tackle and pressing spell of the game you watch into live, spoken commentary that explains *why* a moment matters, told the way each viewer wants it: casual fan, analyst, coach, child, one-eyed home fan, or blind and low-vision fan, in any of 30 languages.
 
 Built for the Microsoft x Premier League **Inside the Game: Developer Hackathon** (challenge: *The Synthetic Match Insights Engine for Premier League Studio*).
 
 **Live demo:** https://matchbrain.orangefield-a516b99c.westus2.azurecontainerapps.io
 
-![Live match view: score bug, pitch with a lower-third graphic, stats and AI commentary](docs/screenshot-live.jpg)
+<p align="center">
+  <img src="docs/screen-matchday.jpg" width="260" alt="Matchday start page: seven games, one kick-off">
+  <img src="docs/screen-moment.jpg" width="260" alt="Live game: a goal card with a picture of the move, a goal alert from another game">
+  <img src="docs/screen-heatmap.jpg" width="260" alt="Scores ticker for all games and a 3D heatmap">
+</p>
 
-> Synthetic data only. Every match is generated from scratch between fictional clubs; no real Premier League match data is used.
+> Synthetic data only. Every match is generated from scratch: the clubs carry Premier League names, but every player, event and result is made up, and no real match data is used.
 
 ## What it does
 
@@ -16,9 +20,9 @@ Built for the Microsoft x Premier League **Inside the Game: Developer Hackathon*
 |---|---|
 | **Ingest** synthetic events | A calibrated simulator streams a full 90-minute match: passes, carries, shots, tackles, pressure, possession changes, fouls, cards |
 | **Interpret** into stats | A stats engine computes exact live numbers: possession, xG, pass accuracy, pass and shot speed, pressing rate, momentum over the last 5 minutes |
-| **Explain** why it matters | A moment detector flags ~29 key moments per match; an Explainer agent says why each one matters (control vs chaos, pressure, rhythm, game state) |
-| **Render** alongside the match | A broadcast-style page: score bug, live pitch with pass trails, TV lower-third graphics, commentary timeline, replays of key moments |
-| **Personalize** for every fan | 5 viewing modes x 4 languages, switchable mid-match; spoken commentary; "Compare" shows one moment told five ways |
+| **Explain** why it matters | A moment detector flags 30–60 key moments per match (goals, chances, cards, pressing, momentum swings, and state-of-play updates when it goes quiet); an Explainer agent says why each one matters (control vs chaos, pressure, rhythm, game state) |
+| **Render** alongside the match | A broadcast-style page: a scores ticker for all seven games with goal alerts, score bug, commentary timeline where each key moment carries a picture of the move (with replay), live stats, player ratings, shot map, pass map and a 2D/3D heatmap |
+| **Personalize** for every fan | 6 viewing modes x 30 languages, switchable mid-match; spoken commentary with a voice per language; "Other takes" shows one moment told every way |
 
 ## Architecture
 
@@ -26,7 +30,7 @@ Built for the Microsoft x Premier League **Inside the Game: Developer Hackathon*
 flowchart LR
     subgraph Data["Synthetic data"]
         CAL["calibrate.py<br/>open CC BY event data<br/>→ aggregate stats only"] --> J[(calibration.json)]
-        J --> SIM["Match simulator<br/>fictional clubs, seeded"]
+        J --> SIM["Match simulator<br/>made-up squads, seeded"]
     end
 
     subgraph Engine["Match intelligence (plain code, exact)"]
@@ -45,8 +49,9 @@ flowchart LR
     FOUNDRY[["Microsoft Foundry<br/>gpt-5-mini"]] -.-> W & EX & P
     SPEECH[["Azure AI Speech<br/>neural voices"]] -.-> UI
 
-    P -- SSE stream --> UI["React broadcast page<br/>pitch · lower thirds · replay ·<br/>commentary · Compare · voice"]
+    P -- SSE stream --> UI["React broadcast page<br/>commentary · moment pictures · replay ·<br/>charts · ratings · Other takes · voice"]
     STATS -- SSE stream --> UI
+    DAY["Matchday scores<br/>all 7 games, rule-based"] -- SSE stream --> UI
 ```
 
 Everything runs as one container on **Azure Container Apps**, which authenticates to Foundry and Speech with a **managed identity** (no keys in the cloud).
@@ -57,7 +62,7 @@ For every key moment, a **Microsoft Agent Framework** workflow ([`agents/pipelin
 
 | Agent | Role | Runs |
 |---|---|---|
-| **Narrator** | One live commentary line, varied from its previous lines | every moment (in parallel with the Explainer) |
+| **Narrator** | One live commentary line, varied from its previous lines; a state-of-play update when the game goes quiet | every moment (in parallel with the Explainer) |
 | **Recap** | Half-time and full-time summary of the story so far | at half-time and full-time, instead of the Narrator |
 | **Explainer** | Why the moment matters, grounded in the recent state of the game and the evidence events | goals, big chances, momentum shifts, pressing, chaotic spells |
 | **Personalizer** | Rewrites both for the viewer's mode and language | when the viewer is not on the default (Casual, English) |
@@ -78,13 +83,18 @@ Design choices:
 | Analyst | data lovers | 2–3 precise numbers and what they mean |
 | Tactics | coaches | shape, space, pressing, decisions |
 | Kids | children | very short, excited sentences |
+| Home fan | supporters | one-eyed and loud for the home side, gutted at the other team's goals; facts stay exact |
 | Described | blind and low-vision fans | who has the ball, where on the pitch, what happened, then the score; written to be read aloud |
 
-Languages: English, Spanish, Hindi, Nepali (player and team names stay as written). Switching re-tells the latest moments straight away, **Voice** reads commentary aloud with Azure AI Speech neural voices in the chosen language, and **Compare** shows any moment in all five modes side by side.
+**30 languages**: English, Spanish, French, German, Portuguese, Italian, Dutch, Arabic, Chinese, Japanese, Korean, Russian, Turkish, Polish, Ukrainian, Indonesian, Malay, Vietnamese, Thai, Hindi, Bengali, Urdu, Tamil, Telugu, Marathi, Nepali, Swahili, Persian, Greek and Swedish (player and team names stay as written; right-to-left scripts display correctly). Switching re-tells the latest moments straight away, **Voice** reads commentary aloud with an Azure AI Speech voice for each language, and **Other takes** shows any moment in all six modes side by side.
+
+## Matchday
+
+Seven games kick off together. Only the game you watch runs the agents and the voice, so a whole matchday costs the same as one game; the others stream live scores, cards and goal alerts from plain code. Tap any game to switch: you join at the current minute, with its score, stats and earlier key moments caught up at once, and the commentator says where you are (*"Over to Anfield: Liverpool 0, Brighton 1, 24 minutes played"*).
 
 ## Synthetic match data
 
-[`generator/`](backend/generator) simulates full 90-minute matches between fictional clubs. The event schema and pitch coordinates are documented in [`events.py`](backend/generator/events.py); the same seed always produces the same match, and goals can be scripted for demos.
+[`generator/`](backend/generator) simulates full 90-minute matches between the 20 Premier League clubs, each with a made-up squad and one of five formations (4-3-3, 4-4-2, 4-2-3-1, 3-5-2, 3-4-3). The event schema and pitch coordinates are documented in [`events.py`](backend/generator/events.py); the same seed always produces the same match, and goals can be scripted for demos.
 
 The simulator is **calibrated, not copied**: [`tools/calibrate.py`](backend/tools/calibrate.py) measures aggregate patterns (pass length mix, failure rates near goal and when challenged, shot conversion by distance, header rates, duel, foul and card rates) and saves them to [`calibration.json`](backend/generator/calibration.json). What the source data does not record (carries, pressing frequency, shot technique, deflections, ball and shot speed) is set by hand and listed under `assumptions` in that file.
 
@@ -109,7 +119,7 @@ No real match events are included in this repository.
 |---|---|
 | **Microsoft Foundry** (gpt-5-mini) | All four agents |
 | **Microsoft Agent Framework** | Agents and the fan-out / fan-in workflow |
-| **Azure AI Speech** | Spoken commentary in four languages |
+| **Azure AI Speech** | Spoken commentary in 30 languages (MAI voices for English, Spanish and Hindi) |
 | **Azure Container Apps** | Hosting (scales to zero when idle) |
 | **Azure Container Registry** | Container images |
 | **Managed identity + Azure RBAC** | Keyless access to Foundry and Speech (Foundry User role) and to the registry (AcrPull) |
@@ -157,10 +167,10 @@ It builds the image locally (free-trial subscriptions cannot run cloud builds), 
 
 ```
 backend/
-  app/          FastAPI: live SSE stream, re-tell and speech endpoints
+  app/          FastAPI: live match and matchday SSE streams, re-tell and speech endpoints
   agents/       Narrator, Explainer, Recap, Personalizer and the workflow
   engine/       stats engine and moment detector
-  generator/    event schema, fictional teams, simulator, terminal replay
+  generator/    event schema, clubs and formations, simulator, terminal replay
   tools/        calibration from open event data
 frontend/src/   React + TypeScript broadcast page
 Dockerfile      one container: built frontend + backend

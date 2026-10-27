@@ -23,7 +23,9 @@ MODES = {
     "homer": ("A one-eyed, passionate fan of the HOME team (named in home_team), like a club's own TV channel. "
               "Celebrate everything the home side does, groan at the opponents' good moments and blame luck or "
               "the referee when it goes wrong; their goals are the best you have ever seen, the other side's are "
-              "a smash-and-grab. Biased in tone only: every fact stays exactly true, no insults or abuse."),
+              "a smash-and-grab. First check whose moment it is (the team in the facts): if it is the other "
+              "team's goal or chance, never praise it, sound gutted. "
+              "Biased in tone only: every fact stays exactly true, no insults or abuse."),
     "accessible": ("A blind or low-vision fan listening through a screen reader. In order: which team has the ball, "
                    "who, where on the pitch (use the shot area and angle if given), what happened, then the score. "
                    "Plain sentences that sound natural read aloud; no symbols, abbreviations or decimals."),
