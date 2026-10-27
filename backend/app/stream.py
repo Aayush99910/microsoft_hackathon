@@ -44,7 +44,7 @@ def spoken_word_budget(speed: float) -> int:
         return 18  # standard
     return 10  # highlights: short bursts only
 
-QUIET_REAL_SECONDS = 25  # this long with nothing said, and the commentator updates the score and the story
+QUIET_REAL_SECONDS = 20  # this long with nothing said, and the commentator updates the score and the story
 
 PROFILES: dict[str, Profile] = {}  # session id -> current viewer profile
 
@@ -71,8 +71,8 @@ async def match_stream(seed: int, speed: float, script: list[ScriptedGoal], agen
     by_id = {e.id: e for e in events}
     state = MatchState(info)
     # Quiet spells get a state-of-play update after about QUIET_REAL_SECONDS of silence (never more often
-    # than every 2 match minutes, at real-time pace)
-    detector = MomentDetector(state, quiet_seconds=max(120.0, QUIET_REAL_SECONDS * speed))
+    # than every 100 match seconds, at real-time pace)
+    detector = MomentDetector(state, quiet_seconds=max(100.0, QUIET_REAL_SECONDS * speed))
     PROFILES[session] = profile
 
     loop = asyncio.get_running_loop()
@@ -245,11 +245,13 @@ def standout_players(state: MatchState, top: int = 3) -> list[dict]:
 TICKER_TYPES = ("goal", "card", "period_start", "period_end")
 
 
-async def matchday_stream(fixtures: list[tuple[int, str, str]], speed: float) -> AsyncIterator[str]:
+async def matchday_stream(fixtures: list[tuple[int, str, str]], speed: float, from_t: float = 0) -> AsyncIterator[str]:
     """Live scores for all of a matchday's games, kicked off together: no agents, so it costs nothing.
 
-    Sends "score" for each game every match minute and on goals, cards and half/full time,
+    Sends "score" for each game every 15 match seconds and on goals, cards and half/full time,
     with the same broadcast delay as a followed match so both show the same minute.
+    `from_t` resumes a matchday that much play in (the browser reconnecting after a dropped
+    connection): every game's state at that point is sent at once, then it carries on live.
     """
     loop = asyncio.get_running_loop()
     queue: list[tuple[float, int, int, Event]] = []  # (played, order, game, event), all games merged
@@ -265,21 +267,36 @@ async def matchday_stream(fixtures: list[tuple[int, str, str]], speed: float) ->
             queue.append((played, next(order), game, e))
     queue.sort()
 
-    started = loop.time() + BROADCAST_DELAY
-    scores = [{"home": 0, "away": 0} for _ in fixtures]
+    started = loop.time() - from_t / speed + BROADCAST_DELAY
+    already_shown = from_t - BROADCAST_DELAY * speed  # on screen before the connection dropped
+    games = [{"game": g, "t": 0.0, "period": 1, "score": {"home": 0, "away": 0}, "half_time": False, "ended": False}
+             for g in range(len(fixtures))]
     last_tick = [-15.0] * len(fixtures)
+    caught_up = from_t <= 0
     for played, _, game, e in queue:
+        state = games[game]
+        if e.type == "goal":
+            state["score"] = {"home": e.goal.home_score, "away": e.goal.away_score}
+        if e.type in ("period_end", "period_start"):
+            state["half_time"] = e.type == "period_end" and e.period == 1
+            state["ended"] = e.type == "period_end" and e.period == 2
+        state["t"], state["period"] = e.t, e.period
+        if not caught_up:
+            if played <= already_shown:
+                continue  # resuming: only the state matters
+            caught_up = True
+            for g in games:  # every game as it stands, at once
+                yield sse("score", {**g, "event": None, "team": None, "player": None, "card": None})
         wait = started + played / speed - loop.time()
         if wait > 0:
             await asyncio.sleep(wait)
-        if e.type == "goal":
-            scores[game] = {"home": e.goal.home_score, "away": e.goal.away_score}
         if e.type in TICKER_TYPES or e.t - last_tick[game] >= 15:
             last_tick[game] = e.t
             yield sse("score", {
-                "game": game, "t": e.t, "period": e.period, "score": scores[game],
-                "event": e.type if e.type in TICKER_TYPES else None, "team": e.team,
+                **state, "event": e.type if e.type in TICKER_TYPES else None, "team": e.team,
                 "player": names.get((game, e.player_id)), "card": e.card.color if e.type == "card" else None,
-                "ended": e.type == "period_end" and e.period == 2,
             })
+    if not caught_up:  # resumed after every game had finished
+        for g in games:
+            yield sse("score", {**g, "event": None, "team": None, "player": None, "card": None})
     yield sse("end", {})

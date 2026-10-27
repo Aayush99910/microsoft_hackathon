@@ -65,6 +65,7 @@ class MomentDetector:
         self.state = state
         self.quiet_seconds = quiet_seconds  # this long without a moment: say how the game stands
         self.last_moment_t = 0.0
+        self.last_update_t = -1e9
         self.ids = itertools.count(1)
         self.spell: list[Event] = []  # events of the current possession, for goal build-ups
         self.spell_announced = False
@@ -96,7 +97,8 @@ class MomentDetector:
             self.opening_done = True
             found.append(self.opening(e))
         found += self.trends(e)
-        quiet = e.t - self.last_moment_t >= self.quiet_seconds
+        # quiet for a while, and updates no closer than 1.5 times that (not three in a row in a dull spell)
+        quiet = e.t - self.last_moment_t >= self.quiet_seconds and e.t - self.last_update_t >= 1.5 * self.quiet_seconds
         if not found and quiet and e.type in ("pass", "carry") and not (e.period == 1 and e.t < OPENING_READ_SECONDS):
             found.append(self.update(e))
         return found
@@ -234,6 +236,7 @@ class MomentDetector:
         }
         headline = (f"{facts['team_on_top_lately']} on top lately" if on_top
                     else "An even contest so far") + f", {snap['score']['home']}-{snap['score']['away']}"
+        self.last_update_t = e.t
         return self.moment(e, "update", 1, headline, facts, self.recent_ids(("pass", "shot")), team=on_top)
 
     def period_end(self, e: Event) -> Moment:

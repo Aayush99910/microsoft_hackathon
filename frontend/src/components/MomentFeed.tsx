@@ -69,7 +69,7 @@ export function MomentFeed({ info, moments, lines, onCompare, waiting, switching
                     </p>
                   )}
                   <div className="meta" hidden={brief}>
-                    {line?.retelling ? 'Re-telling for your new mode…' : m.catchup ? 'Before you joined' : line ? <Trace steps={line.steps} /> : 'Agents writing…'}
+                    {line?.retelling ? 'Re-telling for your new mode…' : m.catchup ? 'Caught up' : line ? <Trace steps={line.steps} /> : 'Agents writing…'}
                     {' / '}
                     {m.evidence.length} event{m.evidence.length === 1 ? '' : 's'}
                     {line && line.profile !== 'casual · en' && ` / ${readable(line.profile)}`}

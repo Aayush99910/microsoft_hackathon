@@ -104,10 +104,11 @@ def get_matchday(day: int = Query(1, ge=0, le=100_000)):
 
 
 @app.get("/api/matchday/stream")
-async def stream_matchday(day: int = Query(1, ge=0, le=100_000), speed: float = Query(20, ge=1, le=600)):
+async def stream_matchday(day: int = Query(1, ge=0, le=100_000), speed: float = Query(20, ge=1, le=600),
+                         from_t: float = Query(0, ge=0, le=7000, description="resume this many seconds of play in")):
     """Live scores of every game on the matchday (rule-based, no agents)."""
     fixtures = [(fixture_seed(day, i), h, a) for i, (h, a) in enumerate(matchday(day))]
-    return StreamingResponse(matchday_stream(fixtures, speed), media_type="text/event-stream",
+    return StreamingResponse(matchday_stream(fixtures, speed, from_t), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -121,7 +122,7 @@ async def stream(
     language: str = "en",
     home: str = "arsenal",
     away: str = "chelsea",
-    from_t: float = Query(0, ge=0, le=6000, description="join a match this many seconds of play in"),
+    from_t: float = Query(0, ge=0, le=7000, description="join a match this many seconds of play in"),
 ):
     check_clubs(home, away)
     try:
