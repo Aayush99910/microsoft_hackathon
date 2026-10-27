@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://matchbrain.orangefield-a516b99c.westus2.azurecontainerapps.io"><b>▶ Try it live</b></a>
   &nbsp;·&nbsp;
-  <a href="#demo-video"><b>Demo video</b></a>
+  <a href="https://youtu.be/6avQoBMw2qs"><b>▶ Demo video</b></a>
   &nbsp;·&nbsp;
   <a href="#architecture"><b>Architecture</b></a>
   &nbsp;·&nbsp;
@@ -42,7 +42,11 @@ Match Brain plays a whole synthetic matchday (seven football-realistic games kic
 
 ## Demo video
 
-*Coming soon.*
+<p align="center">
+  <a href="https://youtu.be/6avQoBMw2qs"><img src="https://img.youtube.com/vi/6avQoBMw2qs/hqdefault.jpg" width="560" alt="Match Brain demo video"></a>
+</p>
+
+<p align="center"><a href="https://youtu.be/6avQoBMw2qs"><b>▶ Watch the demo on YouTube</b></a> (about 2 minutes)</p>
 
 > Synthetic data only. Every match is generated from scratch: the clubs carry Premier League names, but every player, event and result is made up, and no real match data is used.
 
