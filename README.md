@@ -46,7 +46,7 @@ Match Brain plays a whole synthetic matchday (seven football-realistic games kic
   <a href="https://youtu.be/6avQoBMw2qs"><img src="https://img.youtube.com/vi/6avQoBMw2qs/hqdefault.jpg" width="560" alt="Match Brain demo video"></a>
 </p>
 
-<p align="center"><a href="https://youtu.be/6avQoBMw2qs"><b>▶ Watch the demo on YouTube</b></a> (about 2 minutes)</p>
+<p align="center"><a href="https://youtu.be/6avQoBMw2qs"><b>▶ Watch the demo on YouTube</b></a></p>
 
 > Synthetic data only. Every match is generated from scratch: the clubs carry Premier League names, but every player, event and result is made up, and no real match data is used.
 
