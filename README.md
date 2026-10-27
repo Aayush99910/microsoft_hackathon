@@ -1,16 +1,48 @@
-# Match Brain
+<h1 align="center">Match Brain</h1>
 
-**Explainable, multi-agent match intelligence for football broadcasts.** Match Brain plays a whole synthetic matchday (seven football-realistic games kicking off together) and turns every pass, shot, tackle and pressing spell of the game you watch into live, spoken commentary that explains *why* a moment matters, told the way each viewer wants it: casual fan, analyst, coach, child, one-eyed home fan, or blind and low-vision fan, in any of 30 languages.
+<p align="center"><b>Live, explainable football commentary from four AI agents: for every fan, in 30 languages.</b></p>
 
-Built for the Microsoft x Premier League **Inside the Game: Developer Hackathon** (challenge: *The Synthetic Match Insights Engine for Premier League Studio*).
+<p align="center">
+  <a href="https://matchbrain.orangefield-a516b99c.westus2.azurecontainerapps.io"><b>▶ Try it live</b></a>
+  &nbsp;·&nbsp;
+  <a href="#demo-video"><b>Demo video</b></a>
+  &nbsp;·&nbsp;
+  <a href="#architecture"><b>Architecture</b></a>
+  &nbsp;·&nbsp;
+  <a href="#the-agents"><b>The agents</b></a>
+</p>
 
-**Live demo:** https://matchbrain.orangefield-a516b99c.westus2.azurecontainerapps.io
+<p align="center">
+  Built for the Microsoft x Premier League <b>Inside the Game: Developer Hackathon</b><br>
+  Challenge: <i>The Synthetic Match Insights Engine for Premier League Studio</i>
+</p>
 
 <p align="center">
   <img src="docs/screen-matchday.jpg" width="260" alt="Matchday start page: seven games, one kick-off">
   <img src="docs/screen-moment.jpg" width="260" alt="Live game: a goal card with a picture of the move, a goal alert from another game">
   <img src="docs/screen-heatmap.jpg" width="260" alt="Scores ticker for all games and a 3D heatmap">
 </p>
+
+Match Brain plays a whole synthetic matchday (seven football-realistic games kicking off together) and turns every pass, shot, tackle and pressing spell of the game you watch into live, spoken commentary that explains *why* a moment matters, told the way each viewer wants it.
+
+## Highlights
+
+- **Explains, not just describes.** Every key moment comes with *why it matters* (control vs chaos, pressure, rhythm, game state), grounded in exact numbers from a stats engine; the agents never invent a stat.
+- **Traceable.** Each card shows which agents wrote it, how long they took and the match events it is based on, plus a picture of the move with a replay.
+- **One match, every fan.** Casual, Analyst, Tactics, Kids, one-eyed **Home fan** and **Described** (for blind and low-vision fans), in 30 languages, each with its own Azure AI Speech voice. Switch mid-match; *Other takes* shows one moment told every way.
+- **A real matchday.** Seven games at once with a live scores ticker and goal alerts; tap any game to join it at the current minute, fully caught up. Only the game you watch uses AI, so a whole matchday costs the same as one game.
+- **Broadcast-grade data views.** Live stats, player ratings, shot map, pass map and a 2D/3D heatmap.
+- **Built on Microsoft.** Four agents on **Microsoft Foundry** (gpt-5-mini) orchestrated with **Microsoft Agent Framework**, spoken by **Azure AI Speech**, hosted on **Azure Container Apps** with keyless **managed identity**.
+
+## Try it in 30 seconds
+
+1. Open the [live demo](https://matchbrain.orangefield-a516b99c.westus2.azurecontainerapps.io) (the first load can take ~20 s while Azure wakes up).
+2. Tap **Change** → pick **Quick** pace (a whole match in about 5 minutes) and keep **Sound on**.
+3. Tap **Start matchday**. Try **Home fan**, switch language, tap a card's **▶ Replay** and **Other takes**, and tap another game in the scores bar.
+
+## Demo video
+
+*Coming soon.*
 
 > Synthetic data only. Every match is generated from scratch: the clubs carry Premier League names, but every player, event and result is made up, and no real match data is used.
 
