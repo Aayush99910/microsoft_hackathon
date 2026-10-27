@@ -57,7 +57,9 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [switching, setSwitching] = useState<string | null>(null) // loading message while re-telling moments
   const switchToken = useRef<symbol | null>(null)
-  const lastMomentAtSwitch = useRef(Number.MAX_SAFE_INTEGER) // no catch-up re-telling before the first switch
+  // Lines after this moment that are not in the viewer's mode and language get re-told (from the start of a
+  // game too: a line whose translation failed arrives in English and is re-told)
+  const lastMomentAtSwitch = useRef(0)
   const [tab, setTab] = useState<TabId>('moments')
   const wide = useMediaQuery(WIDE)
   const sideTabs = wide ? TABS.filter((t) => t.id !== 'moments') : TABS
@@ -82,7 +84,7 @@ function App() {
   useEffect(() => {
     if (!soundOn) return
     for (const line of Object.values(match.lines)) {
-      if (line.catchup || preparedLines.current.has(line.moment_id)) continue // no voice for the catch-up
+      if (line.catchup || !inLanguage(line, profile) || preparedLines.current.has(line.moment_id)) continue
       preparedLines.current.add(line.moment_id)
       speaker.prepare(spokenText(line, brief), profile.language, intensityOf(line), profile.mode)
     }
@@ -94,7 +96,10 @@ function App() {
   useEffect(() => {
     for (const id of match.heldIds) {
       const line = match.lines[id]
-      if (!line || voiced.current.has(id)) continue
+      // A line not yet in the viewer's language (written before a switch, or its translation failed) waits for
+      // its re-told version: the voice never reads English in a Hindi voice. If that never comes, the card is
+      // shown silently after the hold limit.
+      if (!line || voiced.current.has(id) || !inLanguage(line, profile)) continue
       voiced.current.add(id)
       const showNow = () => {
         match.release(id)
@@ -137,12 +142,17 @@ function App() {
     preparedLines.current.clear()
     voiced.current.clear()
     catchingUp.current.clear()
+    lastMomentAtSwitch.current = 0
   }, [match.run])
 
   useEffect(() => crowd.duck(speaker.status === 'speaking'), [speaker.status]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (match.status === 'idle') crowd.stop()
     else if (match.status === 'live') crowd.resume()
+    else if (match.status === 'ended') {
+      const quiet = window.setTimeout(crowd.stop, 8_000) // after the final whistle and the full-time recap starts
+      return () => clearTimeout(quiet)
+    }
   }, [match.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Watch one of the matchday's games, joining it at the minute the matchday has reached. */
@@ -160,6 +170,7 @@ function App() {
     const g = matchday.games[f.game]
     const score = g?.score ?? { home: 0, away: 0 }
     const minute = g ? Math.floor(g.t / 60) : 0
+    let language = 'en' // the template is English until it is translated
     let text = `Over to ${f.info.venue}: ${f.info.home.name} ${score.home}, ${f.info.away.name} ${score.away}, ${
       g?.halfTime ? 'at half-time' : `${minute} minutes played`
     }.`
@@ -177,12 +188,15 @@ function App() {
             spoken_max_words: 14,
           }),
         }).then((res) => res.json())
-        if (r.source === 'agent') text = r.spoken || r.text
+        if (r.source === 'agent') {
+          text = r.spoken || r.text
+          language = profile.language
+        }
       } catch {
         // say it in English rather than not at all
       }
     }
-    speaker.say(text, profile.language, 'lively', profile.mode, { priority: 2 })
+    speaker.say(text, language, 'lively', profile.mode, { priority: 2 })
   }
 
   function startMatchday() {
@@ -447,6 +461,11 @@ function reactCrowd(crowd: ReturnType<typeof useCrowd>, m: { kind: string; impor
       if (m.importance === 3) crowd.whistle([0.6]) // a red card
       break
   }
+}
+
+/** Whether a commentary line is written in the viewer's language (its label is "mode · language"). */
+function inLanguage(line: Commentary, profile: Profile): boolean {
+  return line.profile.split(' · ')[1] === profile.language
 }
 
 /** What the voice reads: the short line in Brief, otherwise the on-air version. */
