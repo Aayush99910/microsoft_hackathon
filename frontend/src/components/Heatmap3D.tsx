@@ -1,6 +1,6 @@
 import { Line, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BoxGeometry } from 'three'
 import type { MatchEvent } from '../types'
 
@@ -132,6 +132,14 @@ function Heat({ events }: { events: MatchEvent[] }) {
  * `onFail` is called if the device drops the 3D context, so the page can fall back to 2D.
  */
 export default function Heatmap3D({ events, onFail }: { events: MatchEvent[]; onFail: () => void }) {
+  // Leaving 3D shuts its context down on purpose: only a context lost while it is on screen is a failure
+  const onScreen = useRef(true)
+  useLayoutEffect(() => {
+    onScreen.current = true
+    return () => {
+      onScreen.current = false
+    }
+  }, [])
   return (
     <div className="pitch-3d">
       <Canvas
@@ -141,7 +149,7 @@ export default function Heatmap3D({ events, onFail }: { events: MatchEvent[]; on
         onCreated={({ gl }) =>
           gl.domElement.addEventListener('webglcontextlost', (e) => {
             e.preventDefault()
-            onFail()
+            if (onScreen.current) onFail()
           })
         }
       >
