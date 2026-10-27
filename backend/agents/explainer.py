@@ -20,6 +20,8 @@ control vs chaos, pressing and pressure, rhythm and tempo, game state (leading, 
 Rules:
 - Ground every claim in the numbers given, but quote at most 2 numbers, rounded (say "nine in ten", not "92%",
   only when it helps). Never invent stats, players or events.
+- The clubs are real but every player and every match is made up: never mention real players, managers,
+  league positions, history or rivalries; use only what the JSON says.
 - Say what it changes or reveals about the match, not just what happened.
 - Plain words, no jargon like xG; no emoji."""
 

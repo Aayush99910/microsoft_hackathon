@@ -126,16 +126,20 @@ class PersonalizerStep(Executor):
             steps.append({"agent": "personalizer", "ms": 0, "source": "skipped"})
         else:
             result = await self.agents.personalizer.adapt(text, why, self.job.moment.facts, profile, spoken,
-                                                          self.job.context.get("spoken_max_words", 18), short)
+                                                          self.job.context.get("spoken_max_words", 18), short,
+                                                          self.job.context.get("home_team"))
             adapted = parse_json(result.text)
             if adapted and adapted.get("text"):
                 text, why = adapted["text"], adapted.get("why") or why
                 spoken = adapted.get("spoken") or text
+                if len(spoken.split()) > self.job.context.get("spoken_max_words", 18) + 6 and adapted.get("short"):
+                    spoken = adapted["short"]  # too long to read out live: the brief version instead
                 short = adapted.get("short") or short
                 steps.append({"agent": "personalizer", "ms": result.ms, "source": "agent"})
             else:
                 steps.append({"agent": "personalizer", "ms": result.ms, "source": "fallback",
                               "error": result.error or "unreadable reply"})
+                profile = Profile()  # it is still the original line: say so, so the browser re-tells it
 
         await ctx.yield_output({
             "moment_id": self.job.moment.id,

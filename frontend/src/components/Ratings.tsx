@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type { MatchInfo, Player, PlayerRating, Side, Stats } from '../types'
 
 const GROUPS = [
-  { label: 'Goalkeeper', positions: ['GK'] },
-  { label: 'Defenders', positions: ['RB', 'RCB', 'LCB', 'LB'] },
-  { label: 'Midfielders', positions: ['RCM', 'CM', 'LCM'] },
-  { label: 'Forwards', positions: ['RW', 'ST', 'LW'] },
+  { label: 'Goalkeeper', line: 'GK' },
+  { label: 'Defenders', line: 'DEF' },
+  { label: 'Midfielders', line: 'MID' },
+  { label: 'Forwards', line: 'FWD' },
 ]
 
 function band(rating: number): string {
@@ -86,10 +86,7 @@ export function Ratings({ info, stats }: { info: MatchInfo; stats: Stats | null 
         <section key={g.label} className="ratings-group">
           <h3>{g.label}</h3>
           <ol>
-            {team.players
-              .filter((p) => g.positions.includes(p.position))
-              .sort((a, b) => g.positions.indexOf(a.position) - g.positions.indexOf(b.position))
-              .map(row)}
+            {team.players.filter((p) => p.line === g.line).map(row)}
           </ol>
         </section>
       ))}

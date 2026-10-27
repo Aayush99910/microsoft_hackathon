@@ -53,7 +53,7 @@ from .events import (
     TackleDetails,
     TackleEvent,
 )
-from .teams import FORMATION_433, build_teams
+from .teams import FORMATIONS, build_teams, venue
 
 CALIBRATION = json.loads(Path(__file__).with_name("calibration.json").read_text())
 
@@ -89,11 +89,12 @@ def other(side: str) -> str:
 
 
 class MatchSimulator:
-    def __init__(self, seed: int = 7, script: list[ScriptedGoal] | None = None):
+    def __init__(self, seed: int = 7, script: list[ScriptedGoal] | None = None,
+                 home: str = "arsenal", away: str = "chelsea"):
         self.seed = seed
         self.rng = random.Random(seed)
         self.cal = CALIBRATION
-        self.home, self.away = build_teams()
+        self.home, self.away = build_teams(home, away)
         self.teams = {"home": self.home, "away": self.away}
         self.players = {p.id: p for team in self.teams.values() for p in team.players}
         self.script = sorted(script or [], key=lambda g: g.minute)
@@ -118,9 +119,9 @@ class MatchSimulator:
     @property
     def info(self) -> MatchInfo:
         return MatchInfo(
-            match_id=f"synthetic-{self.seed}",
+            match_id=f"synthetic-{self.seed}-{self.home.key}-{self.away.key}",
             seed=self.seed,
-            venue="Northbridge Park",
+            venue=venue(self.home.key),
             home=self.home,
             away=self.away,
         )
@@ -337,13 +338,13 @@ class MatchSimulator:
         if self.yellows[fouler]:
             yellow_rate *= 0.25  # assumption: booked players are careful, and referees slower to show a second card
         roll = self.rng.random()
-        if roll < discipline["red_per_foul"] and self.players[fouler].position != "GK":
+        if roll < discipline["red_per_foul"] and self.players[fouler].role != "GK":
             self.send_off(defending, fouler, "foul")
         elif roll < discipline["red_per_foul"] + yellow_rate:
             self.yellows[fouler] += 1
             self.emit(CardEvent, defending, fouler, self.bx, self.by, frame=self.side,
                       card=CardDetails(color="yellow", reason="foul"))
-            if self.yellows[fouler] == 2 and self.players[fouler].position != "GK":
+            if self.yellows[fouler] == 2 and self.players[fouler].role != "GK":
                 self.send_off(defending, fouler, "second_yellow")
         self.t += self.rng.uniform(15, 35)  # free kick
 
@@ -369,10 +370,11 @@ class MatchSimulator:
             self.new_possession(goal.side, self.player_at(goal.side, "CM"), 55, WIDTH / 2, reason="interception")
             self.t += 2
         active = self.positions(goal.side)
-        assist = goal.assist_id if goal.assist_id in active else self.player_at(
-            goal.side, self.rng.choice(["RW", "LW", "RCM", "LCM"]))
-        scorer = goal.scorer_id if goal.scorer_id in active else self.player_at(
-            goal.side, self.rng.choice(["ST", "ST", "RW", "LW"]))
+        forwards = [p.id for p in self.teams[goal.side].players if p.line == "FWD" and p.id in active]
+        wide = [p.id for p in self.teams[goal.side].players
+                if p.line in ("MID", "FWD") and p.position[0] in "RL" and p.id in active]
+        assist = goal.assist_id if goal.assist_id in active else self.rng.choice(wide or list(active))
+        scorer = goal.scorer_id if goal.scorer_id in active else self.rng.choice(forwards or list(active))
         if scorer == assist:
             scorer = self.player_at(goal.side, "ST")
 
@@ -444,8 +446,8 @@ class MatchSimulator:
         for p in self.teams[side].players:
             if p.id in self.sent_off:
                 continue
-            fx, fy = FORMATION_433[p.position]
-            if p.position == "GK":
+            _, _, fx, fy = FORMATIONS[self.teams[side].formation][p.role]
+            if p.role == "GK":
                 spots[p.id] = (fx + max(0.0, shift) * 0.2, fy)
             else:
                 spots[p.id] = (clamp(fx + shift + push, 3, LENGTH - 3), fy)
@@ -461,9 +463,9 @@ class MatchSimulator:
     def nearest_defender(self) -> int:
         return self.nearest_player(other(self.side), *flip(self.bx, self.by))
 
-    def player_at(self, side: str, position: str) -> int:
+    def player_at(self, side: str, role: str) -> int:
         for p in self.teams[side].players:
-            if p.position == position and p.id not in self.sent_off:
+            if p.role == role and p.id not in self.sent_off:
                 return p.id
         return next(iter(self.positions(side)))  # that player was sent off: anyone active
 
@@ -547,8 +549,9 @@ class MatchSimulator:
         return self.rng.choices(range(len(weights)), weights=weights)[0]
 
 
-def simulate_match(seed: int = 7, script: list[ScriptedGoal] | None = None) -> tuple[MatchInfo, list[Event]]:
-    sim = MatchSimulator(seed, script)
+def simulate_match(seed: int = 7, script: list[ScriptedGoal] | None = None, home: str = "arsenal",
+                   away: str = "chelsea") -> tuple[MatchInfo, list[Event]]:
+    sim = MatchSimulator(seed, script, home, away)
     return sim.info, list(sim.run())
 
 

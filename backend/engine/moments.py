@@ -28,6 +28,7 @@ CHAOS_TURNOVERS_PER_MIN = 3.0  # ball changing hands this often = chaos
 MIN_WINDOW_SECONDS = 3 * 60  # need this much recent play before judging a trend
 COOLDOWN_SECONDS = 8 * 60  # don't repeat the same trend moment more often than this
 OPENING_READ_SECONDS = 2 * 60  # an early read of the game, so the opening minutes are never silent
+QUIET_SECONDS = 4 * 60  # default match time with nothing worth a moment before a state-of-play update
 
 
 def shot_location(e: Event) -> dict:
@@ -50,7 +51,7 @@ class Moment:
     id: int
     t: float
     period: int
-    kind: str  # kickoff, opening, first_shot, goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
+    kind: str  # kickoff, opening, update, first_shot, goal, big_chance, rocket, card, long_spell, momentum_shift, pressing, chaos, half_time, full_time
     importance: int  # 1 = minor, 2 = notable, 3 = major
     headline: str
     team: str | None = None
@@ -60,8 +61,10 @@ class Moment:
 
 
 class MomentDetector:
-    def __init__(self, state: MatchState):
+    def __init__(self, state: MatchState, quiet_seconds: float = QUIET_SECONDS):
         self.state = state
+        self.quiet_seconds = quiet_seconds  # this long without a moment: say how the game stands
+        self.last_moment_t = 0.0
         self.ids = itertools.count(1)
         self.spell: list[Event] = []  # events of the current possession, for goal build-ups
         self.spell_announced = False
@@ -93,6 +96,9 @@ class MomentDetector:
             self.opening_done = True
             found.append(self.opening(e))
         found += self.trends(e)
+        quiet = e.t - self.last_moment_t >= self.quiet_seconds
+        if not found and quiet and e.type in ("pass", "carry") and not (e.period == 1 and e.t < OPENING_READ_SECONDS):
+            found.append(self.update(e))
         return found
 
     # --- single-event moments ----------------------------------------------------
@@ -211,6 +217,25 @@ class MomentDetector:
         headline = f"{facts['team_on_ball_more']} settle quicker: {pct[side]}% of the ball so far"
         return self.moment(e, "opening", 1, headline, facts, self.recent_ids(("pass",), side), team=side)
 
+    def update(self, e: Event) -> Moment:
+        """A quiet spell: how the game stands, like a commentator filling the gap between chances."""
+        s = self.state
+        snap = s.snapshot()
+        pct = snap["possession_pct"]
+        momentum = snap["recent"]["momentum"]
+        on_top = "home" if momentum > 0.15 else "away" if momentum < -0.15 else None
+        best = max(s.players, key=lambda pid: (s.players[pid].xg, s.players[pid].passes_completed))
+        facts = {
+            "possession_pct": {self.team_name(k): v for k, v in pct.items()},
+            "shots": {self.team_name(k): t["shots"] for k, t in snap["teams"].items()},
+            "shots_on_target": {self.team_name(k): t["shots_on_target"] for k, t in snap["teams"].items()},
+            "team_on_top_lately": self.team_name(on_top) if on_top else "neither, it is even",
+            "most_dangerous_player_so_far": s.names[best],
+        }
+        headline = (f"{facts['team_on_top_lately']} on top lately" if on_top
+                    else "An even contest so far") + f", {snap['score']['home']}-{snap['score']['away']}"
+        return self.moment(e, "update", 1, headline, facts, self.recent_ids(("pass", "shot")), team=on_top)
+
     def period_end(self, e: Event) -> Moment:
         snap = self.state.snapshot()
         kind = "half_time" if e.period == 1 else "full_time"
@@ -272,6 +297,7 @@ class MomentDetector:
         team = e.team if team == "event" else team
         player = e.player_id if team == e.team else None
         info, score = self.state.info, self.state.snapshot()["score"]
+        self.last_moment_t = e.t
         # Every moment carries the score and minute, so no agent has to guess them
         facts = {**facts, "minute": int(e.t // 60) + 1,
                  "score_now": f"{info.home.name} {score['home']}-{score['away']} {info.away.name}"}

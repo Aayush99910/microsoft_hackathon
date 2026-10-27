@@ -5,14 +5,41 @@ export const MODES = [
   { id: 'analyst', label: 'Analyst', hint: 'Stats first: xG, shots, possession' },
   { id: 'tactics', label: 'Tactics', hint: 'Shape, pressing and space, like a coach' },
   { id: 'kids', label: 'Kids', hint: 'Simple words, lots of fun' },
+  { id: 'homer', label: 'Home fan', hint: 'One-eyed, all in for the home side' },
   { id: 'accessible', label: 'Described', hint: 'For blind and low-vision fans: who, where, what' },
 ]
 
 export const LANGUAGES = [
-  { id: 'en', label: 'English' },
-  { id: 'es', label: 'Español' },
-  { id: 'hi', label: 'हिन्दी' },
-  { id: 'ne', label: 'नेपाली' },
+  { id: 'en', label: 'English', english: 'English' },
+  { id: 'es', label: 'Español', english: 'Spanish' },
+  { id: 'fr', label: 'Français', english: 'French' },
+  { id: 'de', label: 'Deutsch', english: 'German' },
+  { id: 'pt', label: 'Português', english: 'Portuguese' },
+  { id: 'it', label: 'Italiano', english: 'Italian' },
+  { id: 'nl', label: 'Nederlands', english: 'Dutch' },
+  { id: 'ar', label: 'العربية', english: 'Arabic' },
+  { id: 'zh', label: '中文', english: 'Chinese' },
+  { id: 'ja', label: '日本語', english: 'Japanese' },
+  { id: 'ko', label: '한국어', english: 'Korean' },
+  { id: 'ru', label: 'Русский', english: 'Russian' },
+  { id: 'tr', label: 'Türkçe', english: 'Turkish' },
+  { id: 'pl', label: 'Polski', english: 'Polish' },
+  { id: 'uk', label: 'Українська', english: 'Ukrainian' },
+  { id: 'id', label: 'Bahasa Indonesia', english: 'Indonesian' },
+  { id: 'ms', label: 'Bahasa Melayu', english: 'Malay' },
+  { id: 'vi', label: 'Tiếng Việt', english: 'Vietnamese' },
+  { id: 'th', label: 'ไทย', english: 'Thai' },
+  { id: 'hi', label: 'हिन्दी', english: 'Hindi' },
+  { id: 'bn', label: 'বাংলা', english: 'Bengali' },
+  { id: 'ur', label: 'اردو', english: 'Urdu' },
+  { id: 'ta', label: 'தமிழ்', english: 'Tamil' },
+  { id: 'te', label: 'తెలుగు', english: 'Telugu' },
+  { id: 'mr', label: 'मराठी', english: 'Marathi' },
+  { id: 'ne', label: 'नेपाली', english: 'Nepali' },
+  { id: 'sw', label: 'Kiswahili', english: 'Swahili' },
+  { id: 'fa', label: 'فارسی', english: 'Persian' },
+  { id: 'el', label: 'Ελληνικά', english: 'Greek' },
+  { id: 'sv', label: 'Svenska', english: 'Swedish' },
 ]
 
 type Props = { profile: Profile; onChange: (profile: Profile) => void }
@@ -46,7 +73,7 @@ export function LanguagePicker({ profile, onChange }: Props) {
     >
       {LANGUAGES.map((l) => (
         <option key={l.id} value={l.id}>
-          {l.label}
+          {l.label === l.english ? l.label : `${l.label} · ${l.english}`}
         </option>
       ))}
     </select>

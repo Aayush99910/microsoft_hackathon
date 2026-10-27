@@ -4,9 +4,9 @@ import { type Detail, DetailCards, LanguagePicker, ModeCards, OptionCards } from
 import { type Theme, ThemePicker } from './ThemeToggle'
 
 export const SPEEDS = [
-  { id: '10', label: 'Relaxed', hint: 'Whole match in about 9 min' },
-  { id: '30', label: 'Standard', hint: 'Whole match in about 3 min' },
-  { id: '120', label: 'Highlights', hint: 'Under a minute' },
+  { id: '1', label: 'Real time', hint: '90 minutes, like the real thing' },
+  { id: '5', label: 'Relaxed', hint: 'Whole match in about 18 min' },
+  { id: '20', label: 'Quick', hint: 'Whole match in about 5 min' },
 ]
 
 export const SOUNDS = [

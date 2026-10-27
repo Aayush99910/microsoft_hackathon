@@ -4,17 +4,17 @@ import { retell, type Retold } from '../retell'
 import type { Commentary, Moment } from '../types'
 import { MODES } from './ProfilePicker'
 
-type Props = { moment: Moment; line: Commentary; language: string; onClose: () => void }
+type Props = { moment: Moment; line: Commentary; language: string; homeTeam: string; onClose: () => void }
 
-/** The same moment told five ways: one card per viewing mode, side by side. */
-export function Compare({ moment, line, language, onClose }: Props) {
+/** The same moment told every way: one card per viewing mode, side by side. */
+export function Compare({ moment, line, language, homeTeam, onClose }: Props) {
   const [versions, setVersions] = useState<Record<string, Retold | 'loading' | 'failed'>>(
     Object.fromEntries(MODES.map((m) => [m.id, 'loading'])),
   )
 
   useEffect(() => {
     for (const mode of MODES) {
-      retell(moment, line, { mode: mode.id, language })
+      retell(moment, line, { mode: mode.id, language }, homeTeam)
         .then((r) => setVersions((v) => ({ ...v, [mode.id]: r })))
         .catch(() => setVersions((v) => ({ ...v, [mode.id]: 'failed' })))
     }
@@ -32,13 +32,13 @@ export function Compare({ moment, line, language, onClose }: Props) {
         className="compare"
         role="dialog"
         aria-modal="true"
-        aria-label="Same moment, five takes"
+        aria-label="Same moment, every take"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="compare-head">
           <div>
             <span className="label">
-              Same moment, five takes · {MOMENT_LABEL[moment.kind] ?? moment.kind} · {minuteLabel(moment.t)}
+              Same moment, every take · {MOMENT_LABEL[moment.kind] ?? moment.kind} · {minuteLabel(moment.t)}
             </span>
             <p className="compare-headline">{moment.headline}</p>
           </div>

@@ -1,15 +1,25 @@
 import type { Commentary, Moment, Profile } from './types'
 
-const LANGUAGE_NAME: Record<string, string> = { en: 'English', es: 'Spanish', hi: 'Hindi', ne: 'Nepali' }
-
+/** Which mode and language a line was written for, e.g. "casual · fr" (as the server labels it). */
 export function profileLabel(p: Profile): string {
-  return `${p.mode} · ${LANGUAGE_NAME[p.language] ?? p.language}`
+  return `${p.mode} · ${p.language}`
 }
 
 export type Retold = { text: string; why: string | null; spoken: string; short: string; source: string; ms: number }
 
-/** Ask the Personalizer agent to re-tell one moment for a mode and language. */
-export async function retell(moment: Moment, line: Commentary, profile: Profile): Promise<Retold> {
+/**
+ * Ask the Personalizer agent to re-tell one moment for a mode and language. Tries twice: when the
+ * agent is slow the server hands back the original line, which must not pass as re-told.
+ */
+export async function retell(moment: Moment, line: Commentary, profile: Profile, homeTeam?: string): Promise<Retold> {
+  const first = await retellOnce(moment, line, profile, homeTeam)
+  if (first.source !== 'fallback') return first
+  const second = await retellOnce(moment, line, profile, homeTeam)
+  if (second.source !== 'fallback') return second
+  throw new Error('personalizer did not answer')
+}
+
+async function retellOnce(moment: Moment, line: Commentary, profile: Profile, homeTeam?: string): Promise<Retold> {
   const response = await fetch('/api/personalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -21,6 +31,7 @@ export async function retell(moment: Moment, line: Commentary, profile: Profile)
       facts: moment.facts,
       mode: profile.mode,
       language: profile.language,
+      home_team: homeTeam, // the side the Home fan mode supports
     }),
   })
   if (!response.ok) throw new Error(`personalize failed: ${response.status}`)

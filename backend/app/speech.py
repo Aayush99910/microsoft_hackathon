@@ -30,6 +30,35 @@ VOICES = {
     "es": Voice("es-MX", "es-MX-Alejo:MAI-Voice-2.1-Flash", {"lively": "happy", "excited": "excited"}),
     "hi": Voice("hi-IN", "hi-IN-Dhruv:MAI-Voice-2.1-Flash", {"lively": "happy", "excited": "excited"}),
     "ne": Voice("ne-NP", "ne-NP-SagarNeural", {}),  # the only Nepali voice; pace does the work
+    # Standard neural voices for the rest (no speaking styles; pace does the work)
+    **{code: Voice(locale, name, {}) for code, (locale, name) in {
+        "fr": ("fr-FR", "fr-FR-HenriNeural"),
+        "de": ("de-DE", "de-DE-ConradNeural"),
+        "pt": ("pt-BR", "pt-BR-AntonioNeural"),
+        "it": ("it-IT", "it-IT-DiegoNeural"),
+        "nl": ("nl-NL", "nl-NL-MaartenNeural"),
+        "ar": ("ar-SA", "ar-SA-HamedNeural"),
+        "zh": ("zh-CN", "zh-CN-YunxiNeural"),
+        "ja": ("ja-JP", "ja-JP-KeitaNeural"),
+        "ko": ("ko-KR", "ko-KR-InJoonNeural"),
+        "ru": ("ru-RU", "ru-RU-DmitryNeural"),
+        "tr": ("tr-TR", "tr-TR-AhmetNeural"),
+        "pl": ("pl-PL", "pl-PL-MarekNeural"),
+        "uk": ("uk-UA", "uk-UA-OstapNeural"),
+        "id": ("id-ID", "id-ID-ArdiNeural"),
+        "ms": ("ms-MY", "ms-MY-OsmanNeural"),
+        "vi": ("vi-VN", "vi-VN-NamMinhNeural"),
+        "th": ("th-TH", "th-TH-NiwatNeural"),
+        "bn": ("bn-IN", "bn-IN-BashkarNeural"),
+        "ur": ("ur-PK", "ur-PK-AsadNeural"),
+        "ta": ("ta-IN", "ta-IN-ValluvarNeural"),
+        "te": ("te-IN", "te-IN-MohanNeural"),
+        "mr": ("mr-IN", "mr-IN-ManoharNeural"),
+        "sw": ("sw-KE", "sw-KE-RafikiNeural"),
+        "fa": ("fa-IR", "fa-IR-FaridNeural"),
+        "el": ("el-GR", "el-GR-NestorasNeural"),
+        "sv": ("sv-SE", "sv-SE-MattiasNeural"),
+    }.items()},
 }
 # English has a different commentator for each viewing mode (casual uses the default above)
 ENGLISH_BY_MODE = {
@@ -39,12 +68,14 @@ ENGLISH_BY_MODE = {
                      {"calm": "narrator", "lively": "narrator", "excited": "joyful"}),
     "kids": Voice("en-GB", "en-GB-Emily:MAI-Voice-2.1-Flash",  # cheerful
                   {"calm": "happy", "lively": "happy", "excited": "excited"}),
+    "homer": Voice("en-US", "en-US-Ethan:MAI-Voice-2.1-Flash",  # the club channel's excitable voice
+                   {"calm": "happy", "lively": "excited", "excited": "excited"}),
     "accessible": Voice("en-US", "en-US-Sage:MAI-Voice-2.1-Flash",  # clear, steady
                         {"calm": "narrator", "lively": "narrator", "excited": "narrator"}),
 }
 # Speaking rate: a base pace per mode, plus a boost for big moments. Commentators talk faster than
 # a narrator; described commentary stays at a normal, clear pace. (+25% turns a 5.7 s line into 4.5 s.)
-MODE_RATE = {"casual": 12, "analyst": 8, "tactics": 8, "kids": 10, "accessible": 0}
+MODE_RATE = {"casual": 12, "analyst": 8, "tactics": 8, "kids": 10, "homer": 14, "accessible": 0}
 PROSODY = {"calm": 0, "lively": 6, "excited": 14}  # boost per intensity, in %
 INTENSITIES = tuple(PROSODY)
 MAX_CHARS = 600

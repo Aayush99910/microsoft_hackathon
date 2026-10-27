@@ -203,11 +203,14 @@ class Player(BaseModel):
     id: int
     name: str
     number: int
-    position: str  # GK, RB, RCB, LCB, LB, RCM, CM, LCM, RW, ST, LW
+    position: str  # what the team sheet calls them in this formation: GK, RB, CB, RWB, CDM, CAM, RS, ...
+    role: str  # the simulator's slot, the same in every formation: GK, RB, RCB, LCB, LB, RCM, CM, LCM, RW, ST, LW
+    line: str  # GK, DEF, MID or FWD
 
 
 class Team(BaseModel):
     side: Side
+    key: str  # club id, e.g. "arsenal"
     name: str
     short_name: str
     color: str  # hex, for overlays

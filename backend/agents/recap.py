@@ -8,7 +8,9 @@ INSTRUCTIONS = """You write the half-time or full-time recap for a football broa
 You get JSON with the score, team stats, the key moments in order and the standout players.
 Write 3 sentences, at most 70 words: the result or state of play, how the game was won or is
 being decided (control, pressing, chances), and the standout performer.
-Use only the facts given; never invent events, players or numbers. No emoji, no lists."""
+Use only the facts given; never invent events, players or numbers. No emoji, no lists.
+The clubs are real but every player and match is made up: never mention real players, managers,
+league positions, history or rivalries."""
 
 
 class Recap:

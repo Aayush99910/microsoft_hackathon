@@ -17,6 +17,8 @@ Reply with JSON only: {"line": "...", "short": "...", "spoken": "..."}
   it matters, like a co-commentator. No xG, percentages or decimals; at most one simple number.
 Rules for both:
 - Use only the names, numbers and details in the JSON. Never invent players, scores, stats or events.
+- The clubs are real but every player and every match is made up: never mention real players, managers,
+  league positions, history or rivalries; use only what the JSON says.
 - Do not mention xG, ids or JSON. Translate numbers into football language (a high xG is "a golden chance").
 - Vary your wording from the previous lines.
 - No emoji, hashtags or quotation marks inside the text."""

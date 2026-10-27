@@ -22,9 +22,10 @@ from agents.llm import make_client  # noqa: E402  (needs the .env values above)
 from agents.personalizer import LANGUAGES, MODES, Profile  # noqa: E402
 from agents.pipeline import Agents  # noqa: E402
 from generator.match_sim import MatchSimulator, ScriptedGoal  # noqa: E402
+from generator.teams import CLUBS, matchday  # noqa: E402
 
 from .speech import INTENSITIES, VOICES, Speech  # noqa: E402
-from .stream import PROFILES, match_stream  # noqa: E402
+from .stream import PROFILES, match_stream, matchday_stream  # noqa: E402
 
 app = FastAPI(title="Match Brain API")
 
@@ -51,6 +52,7 @@ class RetellIn(ProfileIn):
     spoken: str | None = Field(default=None, max_length=600)  # the Narrator's original on-air version
     spoken_max_words: int = Field(default=18, ge=5, le=40)
     short: str | None = Field(default=None, max_length=300)  # the Narrator's original brief version
+    home_team: str | None = Field(default=None, max_length=60)  # for the Home fan mode
     facts: dict = {}
 
 
@@ -76,10 +78,37 @@ def options():
     return {"modes": list(MODES), "languages": LANGUAGES}
 
 
+def check_clubs(home: str, away: str) -> None:
+    if home not in CLUBS or away not in CLUBS or home == away:
+        raise HTTPException(400, f"home and away must be two different clubs of {list(CLUBS)}")
+
+
+def fixture_seed(day: int, game: int) -> int:
+    return day * 10 + game
+
+
 @app.get("/api/match/info")
-def match_info(seed: int = 7):
+def match_info(seed: int = 7, home: str = "arsenal", away: str = "chelsea"):
     """Teams and squads, so the page can show the line-ups before kick-off."""
-    return MatchSimulator(seed).info.model_dump()
+    check_clubs(home, away)
+    return MatchSimulator(seed, home=home, away=away).info.model_dump()
+
+
+@app.get("/api/matchday")
+def get_matchday(day: int = Query(1, ge=0, le=100_000)):
+    """A matchday's fixtures (all kick off together): the seed and clubs that identify each game."""
+    return {"day": day, "fixtures": [
+        {"game": i, "seed": fixture_seed(day, i), "info": MatchSimulator(fixture_seed(day, i), home=h, away=a).info.model_dump()}
+        for i, (h, a) in enumerate(matchday(day))
+    ]}
+
+
+@app.get("/api/matchday/stream")
+async def stream_matchday(day: int = Query(1, ge=0, le=100_000), speed: float = Query(20, ge=1, le=600)):
+    """Live scores of every game on the matchday (rule-based, no agents)."""
+    fixtures = [(fixture_seed(day, i), h, a) for i, (h, a) in enumerate(matchday(day))]
+    return StreamingResponse(matchday_stream(fixtures, speed), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/match/stream")
@@ -90,7 +119,11 @@ async def stream(
     session: str = Query(default_factory=lambda: uuid.uuid4().hex, max_length=64),
     mode: str = "casual",
     language: str = "en",
+    home: str = "arsenal",
+    away: str = "chelsea",
+    from_t: float = Query(0, ge=0, le=6000, description="join a match this many seconds of play in"),
 ):
+    check_clubs(home, away)
     try:
         script = []
         for spec in goal:
@@ -102,7 +135,7 @@ async def stream(
         raise HTTPException(400, "goal must look like 23:home or 78:away:30") from None
 
     return StreamingResponse(
-        match_stream(seed, speed, script, agents, session, check_profile(mode, language)),
+        match_stream(seed, speed, script, agents, session, check_profile(mode, language), home, away, from_t),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -125,7 +158,7 @@ async def retell(body: RetellIn):
     if profile.is_default():
         return {"text": body.text, "why": body.why, "spoken": spoken, "short": short, "source": "original", "ms": 0}
     result = await agents.personalizer.adapt(body.text, body.why, body.facts, profile, spoken,
-                                             body.spoken_max_words, short)
+                                             body.spoken_max_words, short, body.home_team)
     adapted = parse_json(result.text)
     if not adapted or not adapted.get("text"):
         return {"text": body.text, "why": body.why, "spoken": spoken, "short": short, "source": "fallback", "ms": result.ms}

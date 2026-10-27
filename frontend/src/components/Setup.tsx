@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react'
-import type { MatchInfo, Profile, Team } from '../types'
+import { useState } from 'react'
+import type { Profile, Team } from '../types'
+import type { Fixture } from '../useMatchday'
 import { type Detail, LANGUAGES, MODES } from './ProfilePicker'
 import { SPEEDS, SettingsSheet } from './SettingsSheet'
 import type { Theme } from './ThemeToggle'
 
 type Props = {
-  seed: number
+  day: number
+  fixtures: Fixture[] | null
+  followed: number
+  onFollow: (game: number) => void
+  onDay: (day: number) => void
   speed: number
   profile: Profile
   sound: boolean
@@ -14,76 +19,77 @@ type Props = {
   onDetail: (detail: Detail) => void
   theme: Theme
   onTheme: (theme: Theme) => void
-  onSeed: (seed: number) => void
   onSpeed: (speed: number) => void
   onProfile: (profile: Profile) => void
-  onKickOff: () => void
+  onStart: () => void
 }
 
-/** Pre-match screen on one screen: the fixture, a summary of how it will be told, and kick-off. */
+/** Pre-match screen: the matchday's games (pick one to watch first), how it will be told, and start. */
 export function Setup(props: Props) {
-  const { seed, speed, profile, sound, detail, onSeed, onKickOff } = props
-  const [info, setInfo] = useState<MatchInfo | null>(null)
+  const { day, fixtures, followed, onFollow, onDay, speed, profile, sound, detail, onStart } = props
   const [editing, setEditing] = useState(false)
 
-  useEffect(() => {
-    fetch(`/api/match/info?seed=${seed}`)
-      .then((r) => r.json())
-      .then(setInfo)
-      .catch(() => setInfo(null))
-  }, [seed])
-
   const mode = MODES.find((m) => m.id === profile.mode)
-  const choices = [
-    { label: 'Style', value: mode?.label, hint: mode?.hint },
-    { label: 'Language', value: LANGUAGES.find((l) => l.id === profile.language)?.label },
-    { label: 'Detail', value: detail === 'brief' ? 'Brief' : 'Detailed' },
-    { label: 'Sound', value: sound ? 'Voice and crowd' : 'No sound' },
-    { label: 'Pace', value: SPEEDS.find((s) => Number(s.id) === speed)?.label },
+
+  const summary = [
+    mode?.label,
+    LANGUAGES.find((l) => l.id === profile.language)?.label,
+    detail === 'brief' ? 'Brief' : 'Detailed',
+    sound ? 'Sound on' : 'No sound',
+    SPEEDS.find((s) => Number(s.id) === speed)?.label,
   ]
 
   return (
-    <section className="setup">
-      <div className="fixture-card">
-        <div className="fixture-top">
-          <span className="label">Matchday · {info?.venue ?? '…'}</span>
-          <button className="link" onClick={() => onSeed(Math.floor(Math.random() * 1000))}>
-            New fixture
-          </button>
+    <section className="setup md-setup">
+      <div className="md-hero">
+        <div>
+          <span className="md-hero-kicker">{fixtures?.length ?? 7} games · one kick-off</span>
+          <h2 className="md-hero-title">Matchday {day}</h2>
+          <p className="md-hero-sub">Every game is generated from scratch. The one you watch is narrated live by AI agents; switch games any time.</p>
         </div>
-        <div className="fixture">
-          {info ? <Club team={info.home} side="home" /> : <div className="club placeholder" />}
-          <span className="vs">v</span>
-          {info ? <Club team={info.away} side="away" /> : <div className="club placeholder" />}
+        <div className="md-hero-actions">
+          <button className="btn btn-primary" onClick={onStart} disabled={!fixtures}>
+            Start matchday
+          </button>
+          <button className="link md-hero-new" onClick={() => onDay(day + 1 + Math.floor(Math.random() * 50))}>
+            Shuffle fixtures
+          </button>
         </div>
       </div>
 
-      <div className="your-match">
-        <div className="your-match-head">
-          <span className="label">Your match</span>
-          <button className="change-btn" onClick={() => setEditing(true)}>
-            Change
-          </button>
-        </div>
-        <dl>
-          {choices.map((c) => (
-            <div key={c.label}>
-              <dt>{c.label}</dt>
-              <dd>
-                {c.value}
-                {c.hint && <span className="muted"> · {c.hint}</span>}
-              </dd>
-            </div>
+      <div className="md-told">
+        <span className="label">How it's told</span>
+        <span className="md-told-chips">
+          {summary.map((c) => (
+            <span key={c}>{c}</span>
           ))}
-        </dl>
-      </div>
-
-      <div className="kickoff-bar">
-        <p className="muted small">Every fixture is generated from scratch and narrated live by AI agents.</p>
-        <button className="btn btn-primary" onClick={onKickOff} disabled={!info}>
-          Kick off
+        </span>
+        <button className="change-btn" onClick={() => setEditing(true)}>
+          Change
         </button>
       </div>
+
+      <div className="md-games-head">
+        <span className="label">Pick a game to watch first</span>
+      </div>
+      <ul className="md-games" role="radiogroup" aria-label="Game to watch first">
+        {(fixtures ?? Array.from({ length: 7 }, () => null)).map((f, i) =>
+          f ? (
+            <li key={f.game}>
+              <button role="radio" aria-checked={followed === f.game} onClick={() => onFollow(f.game)}>
+                <span className="md-game-top">
+                  <span>{f.info.venue}</span>
+                  <span className="md-game-pick">{followed === f.game ? 'Watching first' : 'Watch'}</span>
+                </span>
+                <Club team={f.info.home} />
+                <Club team={f.info.away} />
+              </button>
+            </li>
+          ) : (
+            <li key={i} className="placeholder" />
+          ),
+        )}
+      </ul>
 
       {editing && (
         <SettingsSheet
@@ -104,15 +110,12 @@ export function Setup(props: Props) {
   )
 }
 
-function Club({ team, side }: { team: Team; side: 'home' | 'away' }) {
-  const striker = team.players.find((p) => p.position === 'ST')
+function Club({ team }: { team: Team }) {
   return (
-    <div className={`club ${side}`} style={{ '--team': team.color } as React.CSSProperties}>
-      <span className="label">{side === 'home' ? 'Home' : 'Away'}</span>
-      <div className="club-name">{team.name}</div>
-      <span className="muted small">
-        {team.formation} · {striker?.number} {striker?.name}
-      </span>
-    </div>
+    <span className="md-game-club">
+      <i style={{ background: team.color }} />
+      <span className="md-game-name">{team.name}</span>
+      <span className="md-game-formation">{team.formation}</span>
+    </span>
   )
 }

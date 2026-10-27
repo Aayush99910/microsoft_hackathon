@@ -2,8 +2,9 @@
 
 export type Side = 'home' | 'away'
 
-export type Player = { id: number; name: string; number: number; position: string }
-export type Team = { side: Side; name: string; short_name: string; color: string; formation: string; players: Player[] }
+// position: the team-sheet label in this formation (RB, CDM, RS, ...); role: the same 11 slots in every formation
+export type Player = { id: number; name: string; number: number; position: string; role: string; line: 'GK' | 'DEF' | 'MID' | 'FWD' }
+export type Team = { side: Side; key: string; name: string; short_name: string; color: string; formation: string; players: Player[] }
 export type MatchInfo = { match_id: string; seed: number; venue: string; home: Team; away: Team }
 
 export type MatchEvent = {
@@ -71,6 +72,7 @@ export type Moment = {
   team: Side | null
   facts: Record<string, unknown>
   evidence: number[]
+  catchup?: boolean // happened before the viewer joined the game: no commentary
 }
 
 export type AgentStep = { agent: string; ms: number; source: 'agent' | 'fallback' | 'skipped'; error?: string }
@@ -92,6 +94,7 @@ export type Commentary = {
   ms: number
   steps: AgentStep[]
   retelling?: boolean
+  catchup?: boolean // stands in for a moment from before the viewer joined: its headline, no agents
 }
 
 export type Profile = { mode: string; language: string }

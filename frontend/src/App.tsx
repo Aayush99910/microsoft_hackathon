@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Compare } from './components/Compare'
 import { MomentFeed } from './components/MomentFeed'
-import { Pitch } from './components/Pitch'
+import { Charts } from './components/Charts'
 import { Lineups } from './components/Lineups'
+import { Loading } from './components/Loading'
+import { MatchdayBar } from './components/MatchdayBar'
 import { SoundSwitch } from './components/Sound'
 import { ThemeToggle, useTheme } from './components/ThemeToggle'
 import { type Detail, DetailPicker, LANGUAGES, LanguagePicker, MODES, ModePicker } from './components/ProfilePicker'
@@ -14,6 +16,7 @@ import { StatsPanel } from './components/StatsPanel'
 import type { Commentary, Moment, Profile } from './types'
 import { profileLabel, retell } from './retell'
 import { useMatchStream } from './useMatchStream'
+import { type Fixture, useMatchday } from './useMatchday'
 import { useCrowd } from './useCrowd'
 import { type Intensity, useSpeaker } from './useSpeaker'
 
@@ -32,13 +35,23 @@ const SWITCH_MIN_MS = 2_000 // the switching bar shows at least this long, so th
 const SWITCH_MAX_MS = 6_000 // ...and at most this long, even if a re-tell is slow
 
 function App() {
-  const [seed, setSeed] = useState(7)
-  const [speed, setSpeed] = useState(30)
+  const [day, setDay] = useState(1)
+  const [fixtures, setFixtures] = useState<Fixture[] | null>(null)
+  const [followed, setFollowed] = useState(0) // which game of the matchday is being watched
+  const [speed, setSpeed] = useState(5)
   const [profile, setProfile] = useState<Profile>({ mode: 'casual', language: 'en' })
   const [detail, setDetail] = useState<Detail>('full')
   const { theme, setTheme, toggle: toggleTheme } = useTheme()
   const brief = detail === 'brief'
   const match = useMatchStream()
+  const matchday = useMatchday()
+  useEffect(() => {
+    setFixtures(null)
+    fetch(`/api/matchday?day=${day}`)
+      .then((r) => r.json())
+      .then((d) => setFixtures(d.fixtures))
+      .catch(() => setFixtures(null))
+  }, [day])
   const speaker = useSpeaker()
   const [comparing, setComparing] = useState<Moment | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -67,10 +80,9 @@ function App() {
   // Commentary usually arrives a few seconds before its moment: start downloading its voice now
   const preparedLines = useRef(new Set<number>())
   useEffect(() => {
-    if (Object.keys(match.lines).length === 0) preparedLines.current.clear() // new match: ids start again at 1
     if (!soundOn) return
     for (const line of Object.values(match.lines)) {
-      if (preparedLines.current.has(line.moment_id)) continue
+      if (line.catchup || preparedLines.current.has(line.moment_id)) continue // no voice for the catch-up
       preparedLines.current.add(line.moment_id)
       speaker.prepare(spokenText(line, brief), profile.language, intensityOf(line), profile.mode)
     }
@@ -80,7 +92,6 @@ function App() {
   // reacts, at the instant the voice starts, so all three happen together.
   const voiced = useRef(new Set<number>())
   useEffect(() => {
-    if (Object.keys(match.lines).length === 0) voiced.current.clear()
     for (const id of match.heldIds) {
       const line = match.lines[id]
       if (!line || voiced.current.has(id)) continue
@@ -101,27 +112,94 @@ function App() {
   // old style: re-tell it as it arrives, so everything after a switch matches the new choice
   const catchingUp = useRef(new Set<string>())
   useEffect(() => {
-    if (Object.keys(match.lines).length === 0) catchingUp.current.clear()
     const wanted = profileLabel(profile)
-    for (const line of Object.values(match.lines)) {
+    const lines = Object.values(match.lines)
+    const recentCatchup = new Set(lines.filter((l) => l.catchup).map((l) => l.moment_id).sort((a, b) => b - a).slice(0, RETELL_RECENT))
+    for (const line of lines) {
       const key = `${line.moment_id}|${wanted}`
-      // only moments that arrived after the last switch (older ones beyond the latest few keep their text)
-      if (line.moment_id <= lastMomentAtSwitch.current || line.profile === wanted || line.retelling) continue
+      // only moments that arrived after the last switch, and the latest few from before the viewer joined
+      // (older ones keep their text)
+      const due = line.catchup ? recentCatchup.has(line.moment_id) : line.moment_id > lastMomentAtSwitch.current
+      if (!due || line.profile === wanted || line.retelling) continue
       if (catchingUp.current.has(key)) continue
       const m = match.moments.find((x) => x.id === line.moment_id)
       if (!m) continue // not shown yet: it is re-told once it is
       catchingUp.current.add(key)
-      retell(m, line, profile)
+      retell(m, line, profile, match.info?.home.name)
         .then((r) => match.patchLine(m.id, { text: r.text, why: r.why, spoken: r.spoken, short: r.short, profile: wanted }))
-        .catch(() => undefined)
+        .catch(() => catchingUp.current.delete(key)) // try again on the next update
     }
   }, [match.lines, match.moments, profile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A new game (or the same one restarted): its moment ids start at 1 again, so forget the last game's
+  // (otherwise its moments 1, 2, 3... look already spoken and stay silent)
+  useEffect(() => {
+    preparedLines.current.clear()
+    voiced.current.clear()
+    catchingUp.current.clear()
+  }, [match.run])
 
   useEffect(() => crowd.duck(speaker.status === 'speaking'), [speaker.status]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (match.status === 'idle') crowd.stop()
     else if (match.status === 'live') crowd.resume()
   }, [match.status]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Watch one of the matchday's games, joining it at the minute the matchday has reached. */
+  function follow(game: number, fromT: number) {
+    const f = fixtures?.[game]
+    if (!f) return
+    setFollowed(game)
+    speaker.silence()
+    match.start(f.seed, speed, profile, { home: f.info.home.key, away: f.info.away.key, fromT: Math.min(fromT, 6000) })
+    if (fromT > 0 && soundOn) introduce(f)
+  }
+
+  /** Joining a game already under way: the commentator says where we are, so there is no dead air. */
+  async function introduce(f: Fixture) {
+    const g = matchday.games[f.game]
+    const score = g?.score ?? { home: 0, away: 0 }
+    const minute = g ? Math.floor(g.t / 60) : 0
+    let text = `Over to ${f.info.venue}: ${f.info.home.name} ${score.home}, ${f.info.away.name} ${score.away}, ${
+      g?.halfTime ? 'at half-time' : `${minute} minutes played`
+    }.`
+    if (profile.language !== 'en' || profile.mode !== 'casual') {
+      try {
+        const r = await fetch('/api/personalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            mode: profile.mode,
+            language: profile.language,
+            facts: {},
+            home_team: f.info.home.name,
+            spoken_max_words: 14,
+          }),
+        }).then((res) => res.json())
+        if (r.source === 'agent') text = r.spoken || r.text
+      } catch {
+        // say it in English rather than not at all
+      }
+    }
+    speaker.say(text, profile.language, 'lively', profile.mode, { priority: 2 })
+  }
+
+  function startMatchday() {
+    if (!fixtures) return
+    match.setHolding(soundOn)
+    if (soundOn) {
+      speaker.unlock() // the click lets the browser play commentary later without another click
+      crowd.start()
+    }
+    matchday.start(day, speed, fixtures)
+    follow(followed, 0)
+  }
+
+  function leave() {
+    match.stop()
+    matchday.stop()
+  }
 
   function changeProfile(next: Profile) {
     setProfile(next)
@@ -138,9 +216,10 @@ function App() {
     const retold = match.moments.slice(0, RETELL_RECENT).flatMap((m) => {
       const line = match.lines[m.id]
       if (!line) return []
+      catchingUp.current.add(`${m.id}|${profileLabel(next)}`) // being re-told here: not again below
       match.patchLine(m.id, { retelling: true })
       return [
-        retell(m, line, next)
+        retell(m, line, next, match.info?.home.name)
           .then((r) =>
             match.patchLine(m.id, {
               text: r.text,
@@ -151,7 +230,10 @@ function App() {
               retelling: false,
             }),
           )
-          .catch(() => match.patchLine(m.id, { retelling: false })),
+          .catch(() => {
+            catchingUp.current.delete(`${m.id}|${profileLabel(next)}`) // let the catch-up try it again
+            match.patchLine(m.id, { retelling: false })
+          }),
       ]
     })
     const atLeast = new Promise((resolve) => setTimeout(resolve, SWITCH_MIN_MS))
@@ -161,15 +243,32 @@ function App() {
     })
   }
 
-  if (match.status === 'idle' || !match.info) {
+  const bar = fixtures && (
+    <MatchdayBar
+      fixtures={fixtures}
+      games={matchday.games}
+      followed={followed}
+      followedStats={match.info ? match.stats : null}
+      flash={matchday.flash}
+      onFollow={(game) => game !== followed && follow(game, matchday.playedSeconds())}
+    />
+  )
+
+  if (match.status === 'idle') {
     return (
       <main className="page">
         <Masthead theme={<ThemeToggle theme={theme} onToggle={toggleTheme} />} />
         <Setup
-          seed={seed}
+          day={day}
+          onDay={(d) => {
+            setDay(d)
+            setFollowed(0)
+          }}
+          fixtures={fixtures}
+          followed={followed}
+          onFollow={setFollowed}
           speed={speed}
           profile={profile}
-          onSeed={setSeed}
           onSpeed={setSpeed}
           onProfile={setProfile}
           sound={soundOn}
@@ -178,20 +277,22 @@ function App() {
           onDetail={setDetail}
           theme={theme}
           onTheme={setTheme}
-          onKickOff={() => {
-            match.setHolding(soundOn)
-            if (soundOn) {
-              speaker.unlock() // the click lets the browser play commentary later without another click
-              crowd.start()
-            }
-            match.start(seed, speed, profile)
-          }}
+          onStart={startMatchday}
         />
       </main>
     )
   }
 
   const { info } = match
+  if (!info) {
+    // joining another game: keep the scores bar while it loads
+    return (
+      <main className="page match">
+        {bar}
+        <Loading text="Joining the game…" className="feed-loading" spinner />
+      </main>
+    )
+  }
   const unseen = match.moments.length - seenMoments
   const feed = (
     <MomentFeed
@@ -202,11 +303,13 @@ function App() {
       waiting={match.events.length === 0 ? 'Getting the match ready…' : 'Waiting for the first key moment…'}
       switching={switching}
       brief={brief}
+      eventsFor={match.eventsFor}
     />
   )
   return (
     <main className="page match">
-      <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={match.stop} onSettings={() => setSettingsOpen(true)} />
+      {bar}
+      <Scoreboard info={info} stats={match.stats} last={match.events[0]} status={match.status} onExit={leave} onSettings={() => setSettingsOpen(true)} />
       <button className="settings-strip" onClick={() => setSettingsOpen(true)}>
         <span>
           {MODES.find((m) => m.id === profile.mode)?.label} · {LANGUAGES.find((l) => l.id === profile.language)?.label} ·{' '}
@@ -229,11 +332,11 @@ function App() {
 
       {match.status === 'ended' && (
         <div className="end-actions">
-          <button className="btn btn-primary" onClick={() => match.start(seed, speed, profile)}>
-            Watch again
+          <button className="btn btn-primary" onClick={startMatchday}>
+            Replay matchday
           </button>
-          <button className="btn btn-line" onClick={match.stop}>
-            New fixture
+          <button className="btn btn-line" onClick={leave}>
+            New matchday
           </button>
         </div>
       )}
@@ -266,7 +369,7 @@ function App() {
             {shownTab === 'stats' && <StatsPanel info={info} stats={match.stats} />}
             {shownTab === 'ratings' && <Ratings info={info} stats={match.stats} />}
             {shownTab === 'lineups' && <Lineups info={info} />}
-            {shownTab === 'pitch' && <Pitch info={info} events={match.events} />}
+            {shownTab === 'pitch' && <Charts info={info} history={match.history()} />}
           </div>
         </section>
       </div>
@@ -285,11 +388,20 @@ function App() {
         />
       )}
 
+      {soundOn && speaker.status === 'blocked' && (
+        // the browser refused to play audio without a tap (Safari, iPhone): one tap brings the voice back
+        <button className="md-toast sound-blocked" onClick={speaker.unlock}>
+          <span>Commentary is muted by the browser</span>
+          <span className="md-toast-go">Tap to hear it</span>
+        </button>
+      )}
+
       {comparing && match.lines[comparing.id] && (
         <Compare
           moment={comparing}
           line={match.lines[comparing.id]}
           language={profile.language}
+          homeTeam={info.home.name}
           onClose={() => setComparing(null)}
         />
       )}
@@ -345,7 +457,7 @@ function spokenText(line: Commentary, brief: boolean): string {
 /** How excited the commentator sounds for each kind of moment (a card with importance 3 is a red). */
 function intensityOf(m: { kind: string; importance: number }): Intensity {
   if (m.kind === 'goal' || m.kind === 'milestone' || (m.kind === 'card' && m.importance === 3)) return 'excited'
-  if (m.kind === 'long_spell' || m.kind === 'chaos' || m.kind === 'opening') return 'calm'
+  if (m.kind === 'long_spell' || m.kind === 'chaos' || m.kind === 'opening' || m.kind === 'update') return 'calm'
   return 'lively'
 }
 

@@ -1,6 +1,6 @@
 import type { MatchInfo, Team } from '../types'
 
-const ORDER = ['GK', 'RB', 'RCB', 'LCB', 'LB', 'RCM', 'CM', 'LCM', 'RW', 'ST', 'LW']
+const LINES = ['GK', 'DEF', 'MID', 'FWD']
 
 /** Both starting elevens, goalkeeper to forwards. */
 export function Lineups({ info }: { info: MatchInfo }) {
@@ -13,7 +13,7 @@ export function Lineups({ info }: { info: MatchInfo }) {
 }
 
 function TeamList({ team }: { team: Team }) {
-  const players = [...team.players].sort((a, b) => ORDER.indexOf(a.position) - ORDER.indexOf(b.position))
+  const players = [...team.players].sort((a, b) => LINES.indexOf(a.line) - LINES.indexOf(b.line))
   return (
     <section className="lineup" style={{ '--team': team.color } as React.CSSProperties}>
       <header className="lineup-head">

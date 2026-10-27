@@ -8,6 +8,13 @@ export function clock(t: number, period: number): string {
   return minute >= limit ? `${limit}+${minute - limit + 1}` : `${String(minute).padStart(2, '0')}:${second}`
 }
 
+/** The match clock's minute, for the scores bar: 12' while the clock reads 12:34, 45+1' in stoppage time. */
+export function clockMinute(t: number, period: number): string {
+  const minute = Math.floor(t / 60)
+  const limit = 45 * period
+  return minute >= limit ? `${limit}+${minute - limit + 1}'` : `${minute}'`
+}
+
 export function minuteLabel(t: number): string {
   return `${Math.floor(t / 60) + 1}'`
 }
@@ -16,6 +23,7 @@ export function minuteLabel(t: number): string {
 export const MOMENT_LABEL: Record<string, string> = {
   kickoff: 'Kick-off',
   opening: 'Opening',
+  update: 'Update',
   first_shot: 'First shot',
   goal: 'Goal',
   milestone: 'Milestone',

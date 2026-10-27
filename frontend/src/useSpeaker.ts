@@ -162,7 +162,9 @@ export function useSpeaker() {
   /** Stop whatever is playing or downloading, without starting the next clip. */
   function stopCurrent() {
     generation.current++
-    player.current?.pause()
+    // only pause a commentary line: pausing the silent unlock clip before it starts would leave Safari
+    // refusing every later line
+    if (current.current) player.current?.pause()
     if (current.current) {
       clearTimeout(current.current.watchdog)
       URL.revokeObjectURL(current.current.url)
